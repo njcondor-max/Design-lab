@@ -45,7 +45,8 @@ const USERS = {
   jenna: { name: "Jenna", role: "member", space: "main", pw: process.env.JENNA_PASSWORD },
   demo: { name: "Demo", role: "demo", space: "demo", pw: process.env.DEMO_PASSWORD },
 };
-const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"];
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword", "text/plain", "text/markdown"];
 
 const secret = SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 if (!SESSION_SECRET) console.warn("SESSION_SECRET is not set: logins reset whenever the server restarts.");
@@ -219,7 +220,7 @@ function stripDeletes(o) { if (!isObj(o)) return o; const out = {}; for (const k
 /* ---------- images ---------- */
 app.post("/api/assets", needUser, express.raw({ type: () => true, limit: "20mb" }), async (req, res) => {
   const type = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
-  if (!IMAGE_TYPES.includes(type)) return res.status(415).json({ code: "unsupported_type", message: "Images (PNG, JPEG, GIF, WebP) and PDFs only." });
+  if (!IMAGE_TYPES.includes(type)) return res.status(415).json({ code: "unsupported_type", message: "Images, PDFs, Word documents and text files only." });
   const buf = req.body; if (!Buffer.isBuffer(buf) || !buf.length) return res.status(400).json({ code: "invalid_request", message: "empty file" });
   try {
     const used = await store.assetBytes();
@@ -240,7 +241,8 @@ app.get("/_blob/:id", async (req, res) => {
     const f = path.join(DATA_DIR, "assets", a.space, a.id);
     if (!fs.existsSync(f)) return res.status(404).end();
     res.set("Content-Type", a.type); res.set("Cache-Control", "private, max-age=31536000, immutable");
-    if (a.type === "application/pdf") res.set("Content-Disposition", "inline");
+    if (a.type === "application/pdf" || a.type.startsWith("image/")) res.set("Content-Disposition", "inline");
+    else res.set("Content-Disposition", "attachment");
     fs.createReadStream(f).pipe(res);
   } catch (e) { res.status(503).end(); }
 });

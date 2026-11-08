@@ -411,12 +411,12 @@
   var db = Object.freeze({ doc: docRef, collection: collRef });
 
   /* ---------------- image uploads ---------------- */
-  var ASSET_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"];
+  var ASSET_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword", "text/plain", "text/markdown"];
   var assets = Object.freeze({
     upload: function (blob, opts) {
       if (!(blob instanceof Blob) || !blob.size) return Promise.reject(fail("invalid_request", "upload needs a non-empty Blob"));
       var type = (opts && opts.type) || blob.type;
-      if (ASSET_TYPES.indexOf(type) < 0) return Promise.reject(fail("unsupported_type", "Images and PDFs only"));
+      if (ASSET_TYPES.indexOf(type) < 0) return Promise.reject(fail("unsupported_type", "Images, PDFs, Word documents and text files only"));
       if (blob.size > 20 * 1048576) return Promise.reject(fail("too_large", "over 20 MB"));
       return fetch("/api/assets", { method: "POST", credentials: "same-origin", headers: { "content-type": type }, body: blob }).then(function (r) {
         return r.json().then(function (j) { if (!r.ok) throw fail(j.code || "upstream_error", j.message || "upload failed"); return j; });

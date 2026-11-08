@@ -873,6 +873,7 @@ function act(a, b, r){
     $("#adProj").onchange=()=>{ $("#adNew").style.display=$("#adProj").value==="__new"?"block":"none"; }; return; }
   if(a==="jump"){ jumpTo(j, i, !!b.dataset.ahead); return; }
   if(a==="copyPrompt"){ const s=curStep(j); copyText(promptWithKit(j, s)); return; }
+  if(a==="saveBrief"){ saveBrief(r.id); return; }
   if(a==="drawerToggle"){ S.drawerOpen=!S.drawerOpen; render(); return; }
   if(a==="openKit"){ const pid=r.v==="project"?r.id:j&&j.projectId; if(!pid) return; S.projTab[pid]="kit"; go("project-"+pid); return; }
   if(a==="draftKitHere"){ S.drawerTab="kit"; S.drawerOpen=true; draftKit(j.projectId); return; }
@@ -1029,6 +1030,7 @@ Already has: ${intake.have||"not given"}
 Done looks like: ${intake.done||"not given"}
 Time today: ${intake.today||"not given"}
 About this client: ${intake.notes||"nothing given"}
+Client brief: ${((projById(S.pendingProject)||{}).brief||"not given").slice(0,12000)}
 
 Reply with only JSON in this shape:
 {"title":"short name for the task","summary":"one sentence on the approach","steps":[{"stage":"understand","title":"","tag":"you","tool":"None","minutes":15,"fidelity":"rough","goodEnough":"","why":"","prompt":"","check":[]}]}`;
@@ -1261,10 +1263,10 @@ async function makeThumb(file){
   try{ const {canvas,w,h}=await drawTo(file, 520); let q=.74, d=canvas.toDataURL("image/jpeg",q); while(d.length>110000 && q>.35){ q-=.12; d=canvas.toDataURL("image/jpeg",q); } return {thumb:d,w,h}; }
   catch(e){ return {thumb:"",w:0,h:0}; }
 }
-async function storeFile(file){
+async function storeFile(file, ftype){
   if(!S.assets){ if(S.local){ const id="local"+uid(); S.localBlobs[id]=URL.createObjectURL(file); return {id}; } return {id:null, reason:"no-access"}; }
-  const tryUp = f => S.assets.upload(f).then(r=>({id:r.id, url:r.url}));
-  try{ return await tryUp(file); }
+  const tryUp = (f,t) => S.assets.upload(f, t?{type:t}:undefined).then(r=>({id:r.id, url:r.url}));
+  try{ return await tryUp(file, ftype||fileType(file)); }
   catch(e){
     if(e && (e.code==="rate_limited"||e.code==="quota_or_state"||e.code==="upstream_auth")) return {id:null, reason:e.code};
     if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) return {id:null, reason:e&&e.code};
@@ -1275,13 +1277,21 @@ async function storeFile(file){
     }catch(e2){ return {id:null, reason:(e2&&e2.code)||"refused"}; }
   }
 }
+const DOC_TYPES = {pdf:"application/pdf", docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document", doc:"application/msword", txt:"text/plain", md:"text/markdown", markdown:"text/markdown"};
+function fileType(f){ if(/^image\/(png|jpeg|gif|webp)$/.test(f.type) || Object.values(DOC_TYPES).includes(f.type)) return f.type; const ext=(f.name||"").split(".").pop().toLowerCase(); return DOC_TYPES[ext] || (/^image\//.test(f.type)?f.type:""); }
+const FILE_ACCEPT = "image/*,.pdf,.doc,.docx,.txt,.md";
+function typeLabel(t){ return ({"application/pdf":"PDF","application/vnd.openxmlformats-officedocument.wordprocessingml.document":"Word","application/msword":"Word","text/plain":"Text","text/markdown":"Text"})[t] || (t||"file").split("/").pop().toUpperCase(); }
 async function cardFromFile(file, meta){
-  const isImg = /^image\//.test(file.type);
+  const ftype = fileType(file);
+  if(!ftype){ toast(`“${file.name}” isn't a type the Lab can keep. Use an image, PDF, Word or text file.`); return null; }
+  const isImg = /^image\//.test(ftype);
+  let textBody = "";
+  if(/^text\//.test(ftype)){ try{ textBody = (await file.text()).slice(0,20000); }catch(e){} }
   const {thumb,w,h} = isImg? await makeThumb(file) : {thumb:"",w:0,h:0};
-  const st = await storeFile(file);
+  const st = await storeFile(file, ftype);
   const c = {id:uid(), projectId:meta.projectId||null, jobId:meta.jobId||null, section:meta.section||"inspiration", tags:meta.tags||[],
-    kind:isImg?"image":"file", title:meta.title||file.name.replace(/\.[a-z0-9]+$/i,"").slice(0,120), note:meta.note||"", url:meta.url||"",
-    blob:st.id||null, cleanCopy:!!st.clean, thumb, w, h, fileType:file.type, status:"exploring", heart:false, stars:0, notes:[], stage:meta.stage||null, createdAt:Date.now(), by:S.me};
+    kind:isImg?"image":"file", title:meta.title||file.name.replace(/\.[a-z0-9]+$/i,"").slice(0,120), note:meta.note||textBody||"", url:meta.url||"",
+    blob:st.id||null, cleanCopy:!!st.clean, thumb, w, h, fileType:ftype, fileName:file.name, status:"exploring", heart:false, stars:0, notes:[], stage:meta.stage||null, createdAt:Date.now(), by:S.me};
   if(!st.id && !thumb){ toast(st.reason==="no-access"?"You can't upload to this Lab. Ask Nathan for edit access.":"That file couldn't be stored. Try a PNG or JPG."); return null; }
   if(!st.id && st.reason!=="no-access") c.note = (c.note?c.note+"\n":"")+"(Only a preview was kept; the full file couldn't be stored.)";
   putCard(c, true);
@@ -1341,7 +1351,7 @@ function cardTile(c, showProj){
   if(c.kind==="image" && (c.thumb||c.blob)) face = `<img src="${esc(c.thumb||imgSrc(c))}" alt="${esc(c.title)}" loading="lazy">`;
   else if(c.kind==="link") face = `<div class="linkface">${c.thumb?`<img src="${esc(c.thumb)}" alt="">`:""}<div class="ld"><span class="muted" style="font-size:12px">${esc(domainOf(c.url))}</span><b>${esc(c.title||c.url)}</b></div></div>`;
   else if(c.kind==="note") face = `<div class="noteface">${esc(c.note).slice(0,280)}</div>`;
-  else face = `<div class="noteface"><b>${esc(c.title)}</b><br><span class="muted">${esc((c.fileType||"file").split("/").pop().toUpperCase())}</span></div>`;
+  else face = `<div class="noteface"><b>${esc(c.title)}</b><br><span class="muted">${esc(typeLabel(c.fileType))} file</span>${c.note?`<br><span style="font-size:12px">${esc(c.note.slice(0,160))}</span>`:""}</div>`;
   return `<div class="tile ${c.status} ${sel?"sel":""}">
     <a href="#card-${c.id}" class="tface">${face}</a>
     <div class="tmeta">
@@ -1446,18 +1456,19 @@ function openAddCard(opts){
     <form id="addForm" class="stack" style="gap:12px">
       ${pid?"":`<div><label for="a-proj">Project</label><select id="a-proj">${S.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}<option value="__new">+ New project…</option></select>
         <input type="text" id="a-newproj" placeholder="Project name" style="margin-top:8px;display:${S.projects.length?"none":"block"}"></div>`}
-      <div class="dropzone" id="a-drop" tabindex="0">${opts.files&&opts.files.length?`${opts.files.length} image${opts.files.length>1?"s":""} ready`:"Drop images here, paste (⌘V), or click to choose"}</div>
-      <input type="file" id="a-file" accept="image/*,application/pdf" multiple style="display:none">
+      <div class="dropzone" id="a-drop" tabindex="0">${opts.files&&opts.files.length?`${opts.files.length} file${opts.files.length>1?"s":""} ready`:"Drop images, PDFs or Word files here, paste (⌘V), or click to choose"}</div>
+      <input type="file" id="a-file" accept="image/*,.pdf,.doc,.docx,.txt,.md" multiple style="display:none">
       <div><label for="a-url">Or a link <span class="hint">website, Dribbble shot, article</span></label><input type="text" id="a-url" placeholder="https://" value="${esc(opts.url||"")}"></div>
       <div><label for="a-title">Title <span class="hint">optional</span></label><input type="text" id="a-title"></div>
       <div><label for="a-sec">Section</label><select id="a-sec">${SECTIONS.map(s=>`<option value="${s.key}" ${s.key===sec?"selected":""}>${s.name}</option>`).join("")}</select></div>
       <div class="row" style="gap:6px" id="a-tags">${tagRow(sec)}</div>
-      <div><label for="a-note">Why you're saving it <span class="hint">optional</span></label><input type="text" id="a-note" placeholder="e.g. great product grid"></div>
+      <div><label for="a-note">Note or pasted text <span class="hint">why you saved it, or paste a brief, copy or notes</span></label><textarea id="a-note" style="min-height:80px" placeholder="e.g. great product grid">${esc(opts.text||"")}</textarea></div>
       <div class="row"><button class="btn primary" type="submit" id="a-save">Save</button><button class="btn ghost" type="button" id="a-cancel">Cancel</button></div>
     </form>`, {"a-cancel":closeLayer});
   let files = opts.files ? [...opts.files] : [];
   const drop=$("#a-drop"), fi=$("#a-file");
-  const setFiles = fs=>{ files=[...fs].filter(f=>/^image\/|application\/pdf/.test(f.type)); drop.textContent = files.length? `${files.length} file${files.length>1?"s":""} ready` : "Drop images here, paste (⌘V), or click to choose"; };
+  const setFiles = fs=>{ const all=[...fs]; files=all.filter(f=>fileType(f)); const skipped=all.length-files.length;
+    drop.textContent = (files.length? `${files.length} file${files.length>1?"s":""} ready` : "Drop images, PDFs or Word files here, paste (⌘V), or click to choose") + (skipped?` · ${skipped} skipped (only images, PDF, Word and text files)`:""); };
   drop.onclick=()=>fi.click(); drop.onkeydown=e=>{ if(e.key==="Enter") fi.click(); };
   fi.onchange=()=>setFiles(fi.files);
   drop.ondragover=e=>{ e.preventDefault(); drop.classList.add("over"); }; drop.ondragleave=()=>drop.classList.remove("over");
@@ -1471,7 +1482,7 @@ function openAddCard(opts){
     let projectId = pid;
     if(!projectId){ const v=ap?ap.value:"__new"; if(v==="__new"||!v){ const n=$("#a-newproj").value.trim(); if(!n){ $("#a-newproj").style.display="block"; $("#a-newproj").focus(); return; } projectId=newProject(n).id; } else projectId=v; }
     const url=$("#a-url").value.trim(), title=$("#a-title").value.trim(), note=$("#a-note").value.trim(), section=$("#a-sec").value, tags=[...picked];
-    if(!files.length && !url && !note){ toast("Add an image, a link or a note."); return; }
+    if(!files.length && !url && !note){ toast("Add a file, a link or some text."); return; }
     const btn=$("#a-save"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Saving…`;
     const meta={projectId, section, tags, note, title, jobId:opts.jobId, stage:opts.stage};
     let saved=0;
@@ -1482,10 +1493,12 @@ function openAddCard(opts){
       putCard({id:uid(), projectId, jobId:opts.jobId||null, section, tags, kind:"link", title:title||domainOf(url), note, url, blob, thumb, w, h, cleanCopy:clean, status:"exploring", heart:false, stars:0, notes:[], stage:opts.stage||null, createdAt:Date.now(), by:S.me}, true); saved++;
     }
     for(const f of files){ const c=await cardFromFile(f, {...meta, title: files.length===1?title:""}); if(c) saved++; }
-    if(!url && !files.length && note){ putCard({id:uid(), projectId, jobId:opts.jobId||null, section, tags, kind:"note", title:title||"Note", note, status:"exploring", heart:false, stars:0, notes:[], stage:opts.stage||null, createdAt:Date.now(), by:S.me}, true); saved++; }
+    if(!url && !files.length && note){ putCard({id:uid(), projectId, jobId:opts.jobId||null, section, tags, kind:"note", title:title||note.split("\n")[0].slice(0,80)||"Note", note, status:"exploring", heart:false, stars:0, notes:[], stage:opts.stage||null, createdAt:Date.now(), by:S.me}, true); saved++; }
     S.addPaste=null; closeLayer();
     if(saved){ toast(`Saved ${saved} to ${SECTION_NAME[section]} in ${projName(projectId)}.`); }
-    if(view().v==="focus"){ render(); } else if(!opts.stay) go("project-"+projectId); else render();
+    const tabFor = {brief:"brief", inspiration:"inspiration", brand:"kit"}[section] || "work";
+    S.projTab[projectId]=tabFor; if(tabFor==="work") S.wallSection[projectId]=section;
+    if(view().v==="focus"){ render(); } else if(view().v!=="project" || view().id!==projectId) go("project-"+projectId); else render();
   };
 }
 
@@ -1509,7 +1522,7 @@ function saveToWallBlock(j, s){
     <b>Drop, paste or click</b> to save to <b>${SECTION_NAME[section]}</b> in ${esc(projName(j.projectId))}${n?` · ${n} saved in this stage`:""}
     <button class="btn small" type="button" data-act="addLink">Save a link</button>
     <a class="btn small ghost" href="#project-${j.projectId}">Open wall</a>
-    <input type="file" id="qsFile" accept="image/*,application/pdf" multiple style="display:none"></div>`;
+    <input type="file" id="qsFile" accept="image/*,.pdf,.doc,.docx,.txt,.md" multiple style="display:none"></div>`;
 }
 
 /* ---------- wiring for wall views ---------- */
@@ -1566,7 +1579,15 @@ document.addEventListener("paste", e=>{
   const r=view();
   if(S.addPaste && files.length){ e.preventDefault(); S.addPaste(files); return; }
   const tag=(e.target.tagName||"").toLowerCase(); if(["input","textarea"].includes(tag)) return;
-  if(!files.length){ const txt=(e.clipboardData.getData("text")||"").trim(); if(/^https?:\/\/\S+$/.test(txt) && (r.v==="project"||r.v==="board")){ e.preventDefault(); openAddCard({projectId:r.v==="project"?r.id:null, url:txt}); } return; }
+  if(!files.length){ const txt=(e.clipboardData.getData("text")||"").trim(); if(!txt) return;
+    const pid = r.v==="project" ? r.id : r.v==="focus" ? (getJob(r.id)||{}).projectId : null;
+    if(!["project","board","focus"].includes(r.v)) return;
+    e.preventDefault();
+    if(/^https?:\/\/\S+$/.test(txt)){ openAddCard({projectId:pid, url:txt, stay:true}); return; }
+    if(r.v==="project" && S.projTab[r.id]==="brief"){ const ta=document.getElementById("briefText"); if(ta){ ta.value = ta.value ? ta.value+"\n\n"+txt : txt; saveBrief(r.id); } return; }
+    const tab = r.v==="project" ? S.projTab[r.id] : null;
+    openAddCard({projectId:pid, text:txt, stay:true, section: tab==="kit"?"brand": (txt.length>300 || tab==="brief") ? "brief" : "inspiration"});
+    return; }
   e.preventDefault();
   if(r.v==="focus"){ const j=getJob(r.id); if(j && j.projectId && !j.example) drawerSave(j, files); else toast("Put this plan in a project first."); return; }
   if(r.v==="project"||r.v==="board"||r.v==="projects"){ const tab=r.v==="project"?S.projTab[r.id]:null; openAddCard({projectId:r.v==="project"?r.id:null, files, stay:true, section: tab==="kit"?"brand":tab==="work"?(S.wallSection[r.id]&&S.wallSection[r.id]!=="all"?S.wallSection[r.id]:"designs"):"inspiration"}); }
@@ -1629,13 +1650,14 @@ function projectView(pid){
   const tab = S.projTab[pid] || "plans";
   const k = kitOf(pid);
   const counts = {plans:S.jobs.filter(j=>j.projectId===pid).length, inspiration:cardsOf(pid).filter(c=>c.section==="inspiration").length,
-    work:cardsOf(pid).filter(c=>["brief","wireframes","designs","final"].includes(c.section)).length};
-  const body = tab==="plans"? plansTab(pid) : tab==="kit"? kitTab(pid) : tab==="work"? cardsTab(pid,"work") : cardsTab(pid,"inspiration");
+    work:cardsOf(pid).filter(c=>["wireframes","designs","final"].includes(c.section)).length};
+  const body = tab==="brief"? briefTab(pid) : tab==="plans"? plansTab(pid) : tab==="kit"? kitTab(pid) : tab==="work"? cardsTab(pid,"work") : cardsTab(pid,"inspiration");
   return `<div class="stack" style="gap:20px">
     <a href="#projects" class="btn ghost small" style="align-self:flex-start">← Projects</a>
     <div class="row" style="align-items:flex-end"><div class="stack" style="gap:6px;flex:1 1 320px"><span class="eyebrow">Project</span><h1>${esc(p.name)}</h1></div>
       <div class="actions"><button class="btn small ghost" data-act="renameProj">Rename</button></div></div>
     <div class="tabs" role="tablist">
+      <button class="tab ${tab==="brief"?"on":""}" data-ptab="brief">Brief ${p.brief||cardsOf(pid).some(c=>c.section==="brief")?"<b>✓</b>":""}</button>
       <button class="tab ${tab==="plans"?"on":""}" data-ptab="plans">Plans <b>${counts.plans}</b></button>
       <button class="tab ${tab==="inspiration"?"on":""}" data-ptab="inspiration">Inspiration <b>${counts.inspiration}</b></button>
       <button class="tab ${tab==="kit"?"on":""}" data-ptab="kit">Kit ${k&&k.status==="locked"?`<b style="background:var(--good);color:#fff">locked</b>`:kitReady(k)?"<b>draft</b>":""}</button>
@@ -1643,6 +1665,29 @@ function projectView(pid){
     </div>
     ${body}
   </div>`;
+}
+function briefTab(pid){
+  const p = projById(pid); const files = cardsOf(pid).filter(c=>c.section==="brief");
+  return `<div class="stack" style="gap:16px">
+    <div class="card stack" style="gap:10px">
+      <div class="row"><h3 style="flex:1">Client brief</h3><span class="muted" style="font-size:13px" id="briefState">${p.briefAt?"Saved "+new Date(p.briefAt).toLocaleString():""}</span></div>
+      <p class="muted" style="font-size:14px">Paste the client's brief here. Claude reads it when planning work and drafting the kit for this project.</p>
+      <textarea id="briefText" style="min-height:260px" placeholder="Paste the brief: goals, audience, must-haves, deliverables, deadlines…">${esc(p.brief||"")}</textarea>
+      <div class="row"><button class="btn primary" data-act="saveBrief">Save brief</button><span class="muted" style="font-size:13px">Also saves when you click away.</span></div>
+    </div>
+    <div class="card stack" style="gap:10px">
+      <div class="row"><h3 style="flex:1">Brief files</h3><button class="btn" data-act="addCard" data-addsec="brief">+ Attach a file</button></div>
+      <p class="muted" style="font-size:14px">The brief as a PDF or Word file, client notes, research. Text files are read in automatically; for Word and PDF briefs, paste the text above too so Claude can use it.</p>
+      ${files.length?`<div class="masonry" style="columns:4 180px">${files.map(c=>cardTile(c,false)).join("")}</div>`:`<div class="empty dropzone" data-act="addCard" data-addsec="brief">Drop or attach the brief file here.</div>`}
+    </div>
+  </div>`;
+}
+function saveBrief(pid, quiet){
+  const ta=document.getElementById("briefText"); const p=projById(pid); if(!ta||!p) return;
+  const v=ta.value.slice(0,100000); if((p.brief||"")===v) return;
+  p.brief=v; p.briefAt=Date.now(); putProject(p);
+  const st=document.getElementById("briefState"); if(st) st.textContent="Saved just now";
+  if(!quiet) toast("Brief saved.");
 }
 function plansTab(pid){
   const js = S.jobs.filter(j=>j.projectId===pid);
@@ -1652,8 +1697,8 @@ function plansTab(pid){
   </div>`;
 }
 function cardsTab(pid, which){
-  const all = cardsOf(pid).filter(c=> which==="inspiration" ? c.section==="inspiration" : ["brief","wireframes","designs","final"].includes(c.section));
-  const subs = which==="work" ? SECTIONS.filter(s=>["brief","wireframes","designs","final"].includes(s.key)) : [];
+  const all = cardsOf(pid).filter(c=> which==="inspiration" ? c.section==="inspiration" : ["wireframes","designs","final"].includes(c.section));
+  const subs = which==="work" ? SECTIONS.filter(s=>["wireframes","designs","final"].includes(s.key)) : [];
   const sub = which==="work" ? (S.wallSection[pid]&&subs.some(s=>s.key===S.wallSection[pid])?S.wallSection[pid]:"all") : "inspiration";
   let cards = which==="work" && sub!=="all" ? all.filter(c=>c.section===sub) : all;
   const tagSet = [...new Set(cards.flatMap(c=>c.tags||[]))];
@@ -1745,7 +1790,9 @@ async function draftKit(pid){
       try{ const lim=S.sample.limits? await S.sample.limits() : null; if(lim && lim.images){ opts.images = await Promise.all(pool.filter(c=>c.thumb).slice(0,6).map(c=>fetch(c.thumb).then(r=>r.blob()))); } }catch(e){}
       const v = await S.sample.json(`You are helping Jenna, a senior designer, write the design system ("kit") for one client project. Base it only on her saved references and notes below. Original direction, not a copy of any reference. Write like a senior art director: specific, visual, short.
 Project: ${projName(pid)}
-Plans and brief:
+Client brief:
+${((projById(pid)||{}).brief||"none given").slice(0,8000)}
+Plans:
 ${brief||"none given"}
 Her references (title, tags, why she saved it, rating):
 ${pool.map((c,i)=>`${i+1}. ${c.title} | tags: ${(c.tags||[]).join(", ")||"-"} | why: ${c.note||"-"} | ${c.heart?"favorite ":""}${c.stars?c.stars+" stars":""}`).join("\n")}
@@ -1775,9 +1822,9 @@ function drawer(j){
     <div class="tabs" style="margin-top:6px"><button class="tab ${tab==="insp"?"on":""}" data-drt="insp">Inspiration <b>${cardsOf(pid).filter(c=>c.section==="inspiration").length}</b></button><button class="tab ${tab==="kit"?"on":""}" data-drt="kit">Kit${k&&k.status==="locked"?" ✓":""}</button></div>
     ${tab==="insp"?`
       <div class="dropzone" id="drDrop" tabindex="0" style="margin-top:12px">Drop, paste or click to add</div>
-      <input type="file" id="drFile" accept="image/*,application/pdf" multiple style="display:none">
+      <input type="file" id="drFile" accept="image/*,.pdf,.doc,.docx,.txt,.md" multiple style="display:none">
       <div class="row" style="gap:6px;margin-top:8px"><label for="drSec" style="margin:0;font-size:13px">Save to</label><select id="drSec" style="width:auto;flex:1;padding:6px 8px;font-size:13px">
-        <option value="inspiration" ${S.drawerSec!=="stage"&&S.drawerSec!=="brand"?"selected":""}>Inspiration</option><option value="brand" ${S.drawerSec==="brand"?"selected":""}>Brand assets</option>${stageSec!=="inspiration"&&stageSec!=="brand"?`<option value="stage" ${S.drawerSec==="stage"?"selected":""}>Work files: ${SECTION_NAME[stageSec]}</option>`:""}</select>
+        <option value="inspiration" ${S.drawerSec!=="stage"&&S.drawerSec!=="brand"?"selected":""}>Inspiration</option><option value="brand" ${S.drawerSec==="brand"?"selected":""}>Brand assets</option><option value="brief" ${S.drawerSec==="brief"?"selected":""}>Client brief</option>${stageSec!=="inspiration"&&stageSec!=="brand"?`<option value="stage" ${S.drawerSec==="stage"?"selected":""}>Work files: ${SECTION_NAME[stageSec]}</option>`:""}</select>
         <button class="btn small" data-act="addLink">Link</button></div>
       <div class="drgrid">${insp.map(c=>`<button class="drthumb" data-peek="${c.id}" title="${esc(c.title)}">${c.thumb?`<img src="${esc(c.thumb)}" alt="${esc(c.title)}">`:`<span>${esc(c.title).slice(0,24)}</span>`}${c.heart?`<i>♥</i>`:""}</button>`).join("")}</div>
       ${!insp.length?`<p class="muted" style="font-size:13px;margin-top:10px">Nothing saved yet. Screenshots you paste here land in this project's inspiration.</p>`:""}`
@@ -1825,7 +1872,7 @@ function settingsView(){
 /* ---------- wiring (delegated once) ---------- */
 function kitClick(e){
   const r=view(); const t=e.target;
-  const pt=t.closest("[data-ptab]"); if(pt){ S.projTab[r.id]=pt.dataset.ptab; S.wallTag[r.id]=null; render(); return; }
+  const pt=t.closest("[data-ptab]"); if(pt){ if(r.v==="project") saveBrief(r.id,true); S.projTab[r.id]=pt.dataset.ptab; S.wallTag[r.id]=null; render(); return; }
   const ws=t.closest("[data-wsub]"); if(ws){ S.wallSection[r.id]=ws.dataset.wsub; S.wallTag[r.id]=null; render(); return; }
   const kc=t.closest("[data-kitcopy]"); if(kc){ const pid = r.v==="project"? r.id : (getJob(r.id)||{}).projectId; copyText(kitText(pid, kc.dataset.kitcopy)); return; }
   const dt=t.closest("[data-drt]"); if(dt){ S.drawerTab=dt.dataset.drt; render(); return; }
@@ -1838,6 +1885,7 @@ function kitClick(e){
 }
 $("#app").addEventListener("click", kitClick);
 function wireKit(r){
+  const bt=document.getElementById("briefText"); if(bt && r.v==="project"){ bt.onblur=()=>saveBrief(r.id,true); }
   const kf=$("#kitForm"); if(kf) kf.onsubmit=e=>{ e.preventDefault(); putKit(r.id, readKitForm(r.id)); toast("Kit saved."); render(); };
   const dd=$("#drDrop"), df=$("#drFile");
   if(dd && r.v==="focus"){ const j=getJob(r.id);
