@@ -1,0 +1,1853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a studio job docket. One thing big at a time; everything else quiet at the edges. */
+:root{
+  --paper:#F2F3EF; --card:#FFFFFF; --ink:#16181D; --muted:#5E6470; --line:#DADDD5;
+  --accent:#2F4BFF; --accent-ink:#FFFFFF;
+  --you:#C27C00; --you-bg:#FFF2D6;
+  --ai:#2F4BFF; --ai-bg:#E5E9FF;
+  --tog:#0F8577; --tog-bg:#DDF4F0;
+  --good:#1C8A4A; --warn:#B4500F;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --r:14px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#111318; --card:#1A1D24; --ink:#ECEDEF; --muted:#9CA3AF; --line:#2C313B;
+    --accent:#7C8CFF; --accent-ink:#0D0F14;
+    --you:#F2B338; --you-bg:#3A2C0C; --ai:#8E9CFF; --ai-bg:#1E2450; --tog:#3CC7B3; --tog-bg:#0E3530;
+    --good:#4CC27E; --warn:#F08A4B; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#111318; --card:#1A1D24; --ink:#ECEDEF; --muted:#9CA3AF; --line:#2C313B;
+  --accent:#7C8CFF; --accent-ink:#0D0F14;
+  --you:#F2B338; --you-bg:#3A2C0C; --ai:#8E9CFF; --ai-bg:#1E2450; --tog:#3CC7B3; --tog-bg:#0E3530;
+  --good:#4CC27E; --warn:#F08A4B; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+h1,h2,h3{font-family:var(--display);line-height:1.1;margin:0;text-wrap:balance}
+h1{font-size:clamp(28px,4.4vw,44px);font-weight:800;letter-spacing:-.02em}
+h2{font-size:22px;font-weight:700}
+h3{font-size:17px;font-weight:700}
+p{margin:0}
+a{color:var(--accent)}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+header.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;align-items:center;gap:12px;height:60px}
+.brand{font-family:var(--display);font-weight:800;font-size:19px;text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:8px}
+.brand i{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--accent);transform:rotate(45deg)}
+nav.links{display:flex;gap:4px;margin-left:8px;flex-wrap:wrap}
+nav.links a{padding:6px 10px;border-radius:8px;text-decoration:none;color:var(--muted);font-size:15px}
+nav.links a.on{color:var(--ink);background:var(--card);box-shadow:0 0 0 1px var(--line)}
+.spacer{flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:700;font-size:15px;text-decoration:none;color:var(--ink);white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.big{padding:14px 22px;font-size:17px;border-radius:12px}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--ink);border-color:var(--line)}
+.btn.small{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.park-btn{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.park-btn b{background:var(--paper);color:var(--ink);border-radius:999px;padding:0 7px;font-size:12px;min-width:20px;text-align:center}
+main{padding:28px 0 80px}
+.stack{display:flex;flex-direction:column;gap:16px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:20px}
+@media (max-width:820px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+.muted{color:var(--muted)}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.banner{padding:10px 14px;border-radius:10px;background:var(--you-bg);color:var(--ink);font-size:14px;border:1px solid color-mix(in srgb,var(--you) 40%,transparent)}
+.banner.info{background:var(--ai-bg);border-color:color-mix(in srgb,var(--ai) 35%,transparent)}
+label{font-weight:700;font-size:14px;display:block;margin-bottom:6px}
+.hint{font-weight:400;color:var(--muted)}
+input[type=text],textarea,select{width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line);background:var(--paper)}
+textarea{resize:vertical;min-height:80px}
+.task-input{display:flex;gap:10px;flex-wrap:wrap}
+.task-input input{flex:1 1 320px;font-size:18px;padding:15px 16px;background:var(--card)}
+.tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap}
+.tag::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.tag.you{color:var(--you);background:var(--you-bg)}
+.tag.ai{color:var(--ai);background:var(--ai-bg)}
+.tag.together{color:var(--tog);background:var(--tog-bg)}
+.chip{display:inline-flex;padding:2px 9px;border-radius:999px;border:1px solid var(--line);font-size:12px;font-weight:700;color:var(--muted)}
+.chip.ex{border-color:var(--you);color:var(--you)}
+.jobs{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.job{display:flex;flex-direction:column;gap:10px;text-decoration:none;color:var(--ink);cursor:pointer}
+.job:hover{border-color:var(--muted)}
+.bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.next{font-size:14px}
+.next b{font-weight:700}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.step{display:grid;grid-template-columns:34px 1fr auto;gap:12px;align-items:start;padding:14px 16px}
+.step .n{font-family:var(--display);font-weight:800;font-size:20px;color:var(--muted);font-variant-numeric:tabular-nums}
+.step.done{opacity:.55}
+.step.done .n{color:var(--good)}
+.step.skipped{opacity:.45}
+.step.current{box-shadow:0 0 0 2px var(--accent)}
+.step .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:14px;color:var(--muted)}
+.step .tools{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.edit-area{grid-column:1/-1;display:grid;gap:10px;padding-top:6px;border-top:1px dashed var(--line);margin-top:4px}
+.edit-area .two{display:grid;grid-template-columns:1fr 1fr 110px;gap:10px}
+@media (max-width:600px){.edit-area .two{grid-template-columns:1fr}.step{grid-template-columns:28px 1fr}.step .tools{grid-column:1/-1;justify-content:flex-start}}
+.focus{max-width:760px;margin:0 auto}
+.focus-card{padding:28px;border-radius:20px;border:1px solid var(--line);background:var(--card);display:flex;flex-direction:column;gap:18px;border-top:6px solid var(--accent)}
+.focus-card.you{border-top-color:var(--you)}
+.focus-card.together{border-top-color:var(--tog)}
+.focus-card h1{font-size:clamp(26px,4vw,38px)}
+.prompt-box{position:relative;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 16px;white-space:pre-wrap;font-size:15px;max-height:260px;overflow:auto}
+.useline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:12px;background:var(--paper)}
+.useline .tname{font-family:var(--display);font-weight:800;font-size:20px}
+.later{display:flex;flex-direction:column;gap:6px;margin-top:20px}
+.later div{padding:10px 14px;border-radius:10px;border:1px dashed var(--line);color:var(--muted);font-size:14px}
+.timer{font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums;font-size:18px}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.parklist{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.parklist li{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--paper);border:1px solid var(--line)}
+.parklist li span{flex:1}
+.parklist li.done span{text-decoration:line-through;color:var(--muted)}
+.tool-row{display:grid;grid-template-columns:160px 1fr 1fr 70px;gap:10px;align-items:start}
+@media (max-width:760px){.tool-row{grid-template-columns:1fr}}
+.kind{font-size:12px;font-weight:700;color:var(--muted)}
+.overlay{position:fixed;inset:0;background:rgba(10,12,16,.45);display:flex;align-items:flex-start;justify-content:center;padding:12vh 16px 16px;z-index:20}
+.modal{background:var(--card);border-radius:16px;padding:22px;width:min(560px,100%);display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;font-size:14px;z-index:30}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.legend span{display:flex;gap:6px;align-items:center}
+.spin{display:inline-block;width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spin{animation:none}}
+.kbd{font-size:12px;border:1px solid var(--line);border-radius:5px;padding:0 5px;color:var(--muted)}
+.empty{padding:26px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
+.status{font-size:13px;color:var(--muted)}
+
+.stage-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:14px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.stage-head h3{font-size:18px}
+.stage-head .bar-text{font-size:14px;color:var(--muted);flex:1 1 300px}
+.stage-head .count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.stage-head.done h3{color:var(--good)}
+.stage-chip{display:inline-flex;padding:3px 10px;border-radius:999px;background:var(--ink);color:var(--paper);font-size:12px;font-weight:700;letter-spacing:.02em}
+.fid{display:inline-flex;padding:2px 8px;border-radius:6px;border:1px dashed var(--muted);font-size:12px;font-weight:700;color:var(--muted)}
+.fid.final{border-style:solid;border-color:var(--ink);color:var(--ink)}
+.spine{display:flex;gap:4px;flex-wrap:wrap}
+.spine span{font-size:12px;font-weight:700;padding:4px 9px;border-radius:6px;background:var(--line);color:var(--muted)}
+.spine span.on{background:var(--accent);color:var(--accent-ink)}
+.spine span.past{background:color-mix(in srgb,var(--good) 22%,transparent);color:var(--good)}
+.goodenough{padding:12px 14px;border-radius:12px;border:2px solid var(--good);background:color-mix(in srgb,var(--good) 8%,transparent)}
+.goodenough b{color:var(--good)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg label{margin:0;padding:9px 14px;font-weight:700;font-size:14px;cursor:pointer;background:var(--card)}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg input:checked+span{color:var(--accent)}
+.seg label:has(input:checked){background:var(--ai-bg)}
+.timetable{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+.timetable th,.timetable td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+.timetable td.over{color:var(--warn);font-weight:700}
+.pb-stage{display:grid;grid-template-columns:150px 1fr 1fr;gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
+@media (max-width:760px){.pb-stage{grid-template-columns:1fr}}
+.rate{display:flex;gap:8px;flex-wrap:wrap}
+.rate button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.results{width:100%;border-collapse:collapse;font-size:14px}
+.results th,.results td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:0}
+.tab{border:0;background:transparent;padding:10px 12px;font-weight:700;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
+.tab b{font-weight:700;font-size:12px;background:var(--line);border-radius:99px;padding:1px 7px;margin-left:4px;color:var(--muted)}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.tagchip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 10px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer}
+.tagchip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tagchip.sm{padding:1px 8px;font-size:11px;cursor:default}
+.masonry{columns:4 220px;column-gap:14px}
+.tile{break-inside:avoid;margin:0 0 14px;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.tile.sel{box-shadow:0 0 0 3px var(--accent)}
+.tile.parked{opacity:.5}
+.tile.chosen{border-color:var(--good);box-shadow:0 0 0 2px var(--good)}
+.tface{display:block;color:inherit;text-decoration:none;background:var(--paper)}
+.tface img{display:block;width:100%;height:auto}
+.tmeta{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
+.ttitle{font-weight:700;font-size:14px;line-height:1.3;overflow-wrap:anywhere}
+.linkface .ld{display:flex;flex-direction:column;gap:2px;padding:14px;background:var(--ai-bg)}
+.noteface{padding:16px;font-size:14px;white-space:pre-wrap;background:var(--you-bg);color:var(--ink)}
+.heart{border:0;background:transparent;font-size:18px;line-height:1;color:var(--line);cursor:pointer;padding:2px 4px;border-radius:6px}
+.heart.on{color:#E0245E}
+.heart.big{font-size:15px;font-weight:700;border:1px solid var(--line);padding:8px 12px;color:var(--muted)}
+.heart.big.on{color:#E0245E;border-color:#E0245E}
+.star{border:0;background:transparent;font-size:16px;line-height:1;color:var(--line);cursor:pointer;padding:2px}
+.star.on{color:var(--you)}
+.star.big{font-size:24px}
+.cmp{font-size:12px;font-weight:700;color:var(--muted);display:flex;gap:4px;align-items:center;margin:0;cursor:pointer}
+.st{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--line);color:var(--ink)}
+.st.starred{background:var(--you-bg);color:var(--you)} .st.shortlisted{background:var(--ai-bg);color:var(--ai)} .st.chosen{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}
+.cover{height:130px;background:var(--ai-bg) center/cover no-repeat;display:flex;align-items:center;justify-content:center}
+.cover span{font-family:var(--display);font-weight:800;font-size:44px;color:var(--ai)}
+.dropzone{border:2px dashed var(--line);border-radius:12px;padding:18px;text-align:center;color:var(--muted);cursor:pointer}
+.dropzone.over{border-color:var(--accent);background:var(--ai-bg);color:var(--ink)}
+.savewall{display:flex;gap:10px;align-items:center;flex-wrap:wrap;text-align:left;font-size:14px;padding:12px 14px;border-radius:12px;background:var(--paper)}
+.savewall.dropzone{border-style:dashed}
+.cardgrid{display:grid;grid-template-columns:1.3fr 1fr;gap:24px;align-items:start}
+@media (max-width:860px){.cardgrid{grid-template-columns:1fr}}
+.bigimg{background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.bigimg img{display:block;width:100%;height:auto}
+.cmpgrid{display:grid;gap:14px}
+@media (max-width:700px){.cmpgrid{grid-template-columns:1fr!important}}
+.note-item{padding:8px 12px;border-radius:10px;background:var(--paper);font-size:14px}
+.brand{white-space:nowrap}
+nav.links{flex-wrap:nowrap;overflow-x:auto;min-width:0;scrollbar-width:none}
+nav.links a{white-space:nowrap}
+.status{white-space:nowrap;font-size:12px}
+@media (max-width:1100px){.status{display:none}}
+.focuswrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px;max-width:1140px;margin:0 auto;align-items:start}
+.focuswrap .focus{max-width:none;margin:0}
+.drawer{position:sticky;top:76px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;max-height:calc(100vh - 96px);overflow:auto}
+.drawer .tabs .tab{padding:8px 10px;font-size:13px}
+.drawer-close,.drawer-fab{display:none}
+@media (max-width:1000px){
+  .focuswrap{grid-template-columns:1fr}
+  .drawer{position:fixed;right:0;top:0;bottom:0;width:min(360px,90vw);max-height:none;border-radius:0;transform:translateX(105%);transition:transform .2s;z-index:15;box-shadow:-12px 0 40px rgba(0,0,0,.18)}
+  .drawer.open{transform:none}
+  .drawer-close{display:inline-flex}
+  .drawer-fab{display:inline-flex;position:fixed;right:16px;bottom:16px;z-index:14}
+}
+@media (prefers-reduced-motion: reduce){.drawer{transition:none}}
+.drgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}
+.drthumb{position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;padding:0;background:var(--paper);aspect-ratio:1;cursor:pointer}
+.drthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.drthumb i{position:absolute;top:2px;right:5px;color:#E0245E;font-style:normal}
+.drthumb span{font-size:11px;padding:4px;display:block;text-align:left}
+.dot{width:24px;height:24px;border-radius:6px;border:1px solid var(--line);display:inline-block}
+.palette{display:flex;flex-direction:column;gap:8px}
+.sw{display:grid;grid-template-columns:36px 110px 1fr 1fr auto;gap:8px;align-items:center}
+@media (max-width:700px){.sw{grid-template-columns:36px 1fr 1fr}}
+.chip-color{width:36px;height:36px;border-radius:8px;border:1px solid var(--line)}
+.refrow{display:flex;gap:12px;align-items:center}
+.refrow img{width:72px;height:54px;object-fit:cover;border-radius:8px}
+.refpick{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.refbtn{position:relative;width:72px;height:54px;border:1px solid var(--line);border-radius:8px;overflow:hidden;padding:0;background:var(--paper);cursor:pointer;font-size:10px}
+.refbtn img{width:100%;height:100%;object-fit:cover;display:block}
+.refbtn span{position:absolute;top:1px;right:4px;color:#E0245E}
+.gear{font-size:18px;line-height:1}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#home"><i></i>Design Lab</a>
+    <nav class="links" id="nav">
+      <a href="#home" data-v="home">Today</a>
+      <a href="#projects" data-v="projects">Projects</a>
+      <a href="#board" data-v="board">Library</a>
+      <a href="#settings" data-v="settings" aria-label="Settings" title="Tool guide, playbooks, parking lot"><span class="gear">⚙</span></a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="status" id="saveStatus"></span>
+    <button class="btn park-btn" id="parkBtn" type="button" title="Park a thought for later (P)">Park it <b id="parkCount">0</b></button>
+  </div>
+</header>
+<main><div class="wrap" id="app"></div></main>
+<div id="layer"></div>
+
+<script>
+/* ================= constants ================= */
+const TAGS = {
+  you: {label:"You", help:"Taste, judgment, client calls. Your hands."},
+  ai: {label:"AI does it", help:"A tool does the whole step. You check it."},
+  together: {label:"Together", help:"AI drafts, you edit."}
+};
+const FID = {rough:"Rough", mid:"Mid", final:"Final"};
+
+/* The spine: every task, every family, in this order. Nothing starts with polish. */
+const SPINE = [
+  {key:"understand", name:"Understand"},
+  {key:"explore", name:"Explore"},
+  {key:"direction", name:"Direction"},
+  {key:"rough", name:"Rough"},
+  {key:"build", name:"Build"},
+  {key:"critique", name:"Critique"},
+  {key:"polish", name:"Polish"},
+  {key:"deliver", name:"Deliver"}
+];
+const SPINE_IDX = Object.fromEntries(SPINE.map((s,i)=>[s.key,i]));
+
+const STARTER_GUIDE = [
+  {id:"claude", name:"Claude", kind:"ai", goodFor:"Writing and rewriting copy, briefs and client emails; critiquing a design from a screenshot; research summaries; longer jobs that end in a finished file (report, deck, spreadsheet)", avoidFor:"Making finished images", link:"https://claude.ai"},
+  {id:"chatgpt", name:"ChatGPT", kind:"ai", goodFor:"Quick questions; brainstorm lists of names, taglines and angles; fast back-and-forth ideas (the Chat tab)", avoidFor:"Long documents where every fact must be right", link:"https://chatgpt.com"},
+  {id:"chatgpt-work", name:"ChatGPT Work", kind:"ai", goodFor:"Handing off a multi-step job that ends in a deliverable: competitor research, a brief or report as a doc, sorting files, anything you'd otherwise click through yourself (the Work tab)", avoidFor:"Quick questions; anything you need back in 2 minutes", link:"https://chatgpt.com"},
+  {id:"gemini", name:"Gemini", kind:"ai", goodFor:"Image generation and editing (Nano Banana): mood images, hero shots, mockup scenes, quick visual directions", avoidFor:"Final vector or print-ready art", link:"https://gemini.google.com"},
+  {id:"figma", name:"Figma", kind:"hands", goodFor:"Layouts, UI screens, wireframes, prototypes, design systems", avoidFor:"Print production files", link:"https://www.figma.com"},
+  {id:"illustrator", name:"Illustrator", kind:"hands", goodFor:"Logos, vector art, packaging dielines, print-ready files", avoidFor:"Clickable prototypes", link:""}
+];
+
+/* Families: each maps the spine to its own goals, bars and typical steps. */
+const STARTER_PLAYBOOKS = [
+  {id:"web", name:"Web & UI", blurb:"Websites, landing pages, app screens, UI overhauls", polishBudget:60, stages:{
+    understand:{goal:"Goal, audience, must-haves, and what exists today", bar:"A one-line goal, 3 to 5 must-haves and a page list", steps:"Write the one-line goal and must-haves\nList the pages or screens\nCheck what content and copy already exist\nRedesign: audit the current site (what works, what's broken)"},
+    explore:{goal:"Inspiration before pixels", bar:"10 to 20 saved references and 3 named patterns", steps:"Competitor and reference scan\nFree exploration, timed\nMoodboard of the references you'd actually steal from"},
+    direction:{goal:"One direction, decided", bar:"One chosen direction: type pair, palette, image style, one hero sketch. Signed off.", steps:"Make 2 to 3 style tiles\nPick one (client or self sign-off)"},
+    rough:{goal:"Wireframes", bar:"Gray boxes with real headings for every key page. No colour, no fonts.", steps:"Wireframe the key pages\nDraft the copy into the wireframes"},
+    build:{goal:"High-fidelity design", bar:"Key pages at desktop in the chosen direction, real copy, then mobile", steps:"Design the homepage\nDesign the inner pages\nAdapt to mobile"},
+    critique:{goal:"One critique round", bar:"Checked once against the must-haves. If it passes, it ships.", steps:"One critique against the must-haves"},
+    polish:{goal:"Details, inside a budget", bar:"Fix list done or polish budget spent, whichever comes first", steps:"Spacing and type pass\nHover and empty states"},
+    deliver:{goal:"Out the door", bar:"Shared with the client or handed to the developer", steps:"Prototype link and export\nHandoff notes"}
+  }},
+  {id:"brand", name:"Brand identity", blurb:"Logos, identity systems, rebrands", polishBudget:60, stages:{
+    understand:{goal:"What the brand stands for", bar:"Three words the brand must feel like, the audience, and 3 competitors", steps:"Brief: values, audience, three brand words\nCompetitor scan\nRebrand: what must survive from the old identity"},
+    explore:{goal:"Ideas before vectors", bar:"A page of word associations, references and 20+ thumbnail sketches", steps:"Word associations and metaphors\nReference board\nFree exploration: thumbnail sketches, timed"},
+    direction:{goal:"Pick the concept", bar:"2 to 3 concepts narrowed to one, with a one-line rationale", steps:"Develop 2 to 3 concepts roughly\nChoose one and write why"},
+    rough:{goal:"Black and white first", bar:"The mark works in black and white at small and large sizes", steps:"Vector the mark in black and white\nTest at favicon and billboard sizes"},
+    build:{goal:"The system", bar:"Mark, colour, type and 3 real applications", steps:"Refine the mark\nColour and type system\nMock it on 3 real applications"},
+    critique:{goal:"One critique round", bar:"Checked once against the three brand words and the brief", steps:"One critique against the brief"},
+    polish:{goal:"Details, inside a budget", bar:"Fix list done or budget spent", steps:"Optical kerning and curve cleanup"},
+    deliver:{goal:"Hand it over", bar:"Logo files in every format plus a short brand guide", steps:"Export logo package\nOne-page brand guide"}
+  }},
+  {id:"packaging", name:"Packaging & print", blurb:"Bags, boxes, labels, cans, posters, menus", polishBudget:45, stages:{
+    understand:{goal:"Specs before ideas", bar:"Dieline or size, material, print method, required copy and legal text in hand", steps:"Get the dieline, size and material\nAsk the printer for specs and limits\nCollect required copy and legal text\nRedesign: what must stay recognisable"},
+    explore:{goal:"See the shelf", bar:"A shelf of 10+ competitor and reference pieces, 3 patterns named", steps:"Shelf and competitor scan\nFree exploration, timed\nMaterial and finish references"},
+    direction:{goal:"One concept, decided", bar:"One concept as a flat sketch with palette and type. Signed off.", steps:"Sketch 2 to 3 concepts flat\nPick one"},
+    rough:{goal:"Layout on the dieline", bar:"Every panel laid out in black and white with real copy", steps:"Place copy and hierarchy on every panel"},
+    build:{goal:"Full art", bar:"Final art on the dieline and a 3D mockup check", steps:"Final art on the dieline\n3D mockup check"},
+    critique:{goal:"One critique round", bar:"Checked once against specs, must-haves and shelf impact", steps:"One critique against specs and must-haves"},
+    polish:{goal:"Details, inside a budget", bar:"Fix list done or budget spent", steps:"Colour and detail pass"},
+    deliver:{goal:"Print-ready", bar:"Print-ready files sent and a proof checked", steps:"Preflight and export print files\nCheck the printer's proof"}
+  }},
+  {id:"social", name:"Social & campaign", blurb:"Post sets, ads, campaign graphics", polishBudget:20, stages:{
+    understand:{goal:"Goal and specs", bar:"Goal, platform sizes and number of pieces written down", steps:"Write the goal, platforms and sizes\nCollect brand assets"},
+    explore:{goal:"Angles and references", bar:"5 references and 10 angle ideas", steps:"Angle brainstorm\nReference scan"},
+    direction:{goal:"One look", bar:"One template that the whole set follows", steps:"Design one template"},
+    rough:{goal:"Copy and layouts", bar:"All copy written, rough layout per piece", steps:"Write all the copy\nRough each piece"},
+    build:{goal:"Produce the set", bar:"Every piece finished in every size", steps:"Produce the set\nResize for each platform"},
+    critique:{goal:"One critique round", bar:"Checked once against the goal", steps:"One critique against the goal"},
+    polish:{goal:"Light polish", bar:"Budget spent", steps:"Final consistency pass"},
+    deliver:{goal:"Out the door", bar:"Exported, named and scheduled or sent", steps:"Export and name files\nSchedule or send"}
+  }},
+  {id:"other", name:"Other / one-off", blurb:"Anything that doesn't fit the others", polishBudget:30, stages:{
+    understand:{goal:"What done looks like", bar:"Goal, specs and must-haves written down", steps:"Write the goal and must-haves"},
+    explore:{goal:"Look around first", bar:"A handful of references", steps:"Reference scan\nFree exploration, timed"},
+    direction:{goal:"Decide", bar:"One direction chosen", steps:"Pick a direction"},
+    rough:{goal:"Rough version", bar:"Everything in place roughly, no details", steps:"Rough version"},
+    build:{goal:"Real version", bar:"Finished at full fidelity", steps:"Real version"},
+    critique:{goal:"One critique round", bar:"Checked once against the must-haves", steps:"One critique"},
+    polish:{goal:"Details, inside a budget", bar:"Budget spent", steps:"Detail pass"},
+    deliver:{goal:"Hand it over", bar:"Sent", steps:"Export and send"}
+  }}
+];
+
+const EXAMPLE = {
+  id:"example", example:true, title:"Homepage redesign for a vending brand", family:"web", fresh:"redesign",
+  summary:"Get the facts and references straight, decide one direction, wireframe before you design, and keep polish inside its budget.",
+  intake:{deadline:"Friday", have:"Current site, logo files", done:"Homepage ready for client review", today:"3 hours", musts:"Clear 'find a machine' button; feels premium, not cheap; works on phones"},
+  status:"active",
+  steps:[
+    {stage:"understand", title:"Write the goal and the must-haves", tag:"you", tool:"None", minutes:10, fidelity:"rough", goodEnough:"One sentence and 3 bullets. Not polished.", why:"Every later step leans on this.", prompt:"Write: who the homepage is for, the one action they should take, and 3 must-haves from the client."},
+    {stage:"understand", title:"Audit the current homepage", tag:"together", tool:"Claude", minutes:15, fidelity:"rough", goodEnough:"A keep / fix / drop list", why:"A redesign starts from what exists. Claude spots issues fast from a screenshot.", prompt:"Here's a screenshot of a homepage for [BRAND NAME], a mystery-box vending company. List what to keep, what to fix and what to drop, 3 to 5 bullets each. Judge it on: clarity of the main action, trust, mobile readability.", check:["Each point is about this page, not generic advice"]},
+    {stage:"explore", title:"Competitor and reference scan", tag:"ai", tool:"ChatGPT Work", minutes:15, fidelity:"rough", goodEnough:"5 sites, 3 patterns named", why:"Research is legwork. Hand it off and only read the result.", prompt:"Research 5 homepages of novelty or mystery-box vending brands. For each: headline, main call to action, what's above the fold, one thing that works. End with the 3 patterns that show up most.", check:["Every site is a real, live brand","Patterns are things you could actually use"]},
+    {stage:"explore", title:"Free exploration", tag:"you", tool:"Figma", minutes:25, fidelity:"rough", goodEnough:"Messy is the point. Stop when the timer ends.", why:"Play gets its own time box, so it doesn't take over later steps.", prompt:"Scribble hero ideas, type pairings, anything. No spacing, no alignment, no saving for later."},
+    {stage:"direction", title:"Three style tiles, pick one", tag:"you", tool:"Figma", minutes:40, fidelity:"mid", goodEnough:"Type pair, palette, image style and a hero sketch. One chosen.", why:"Deciding the look once stops it changing on every page.", prompt:"Make 3 style tiles from the references. Pick one and write one line on why."},
+    {stage:"rough", title:"Wireframe the homepage", tag:"you", tool:"Figma", minutes:40, fidelity:"rough", goodEnough:"Gray boxes, real headings, no colour, no fonts", why:"Structure first. Details here are wasted if the layout moves.", prompt:"Wireframe desktop: hero, how it works, find a machine, social proof, footer. Gray boxes only."},
+    {stage:"rough", title:"Draft the copy into the wireframe", tag:"together", tool:"Claude", minutes:15, fidelity:"mid", goodEnough:"Real words in every box, good enough to judge the layout", why:"Real copy shows if the layout works. Claude drafts, you cut.", prompt:"Write homepage copy for [BRAND NAME], a mystery-box vending machine company. Must-haves: [MUST-HAVES]. Sections: hero (3 headline options + subhead), how it works (3 steps), find a machine, social proof placeholder, footer. Plain, playful, no hype words, no invented stats.", check:["Headlines under 8 words","No made-up prices, stats or reviews"]},
+    {stage:"build", title:"Design the homepage, desktop", tag:"you", tool:"Figma", minutes:90, fidelity:"final", goodEnough:"Every section designed in the chosen direction with real copy", why:"This is the taste work. Your hands, your call.", prompt:"Design desktop from the wireframe and style tile."},
+    {stage:"build", title:"Adapt to mobile", tag:"you", tool:"Figma", minutes:40, fidelity:"final", goodEnough:"390px frame with every section", why:"Most visitors are on phones.", prompt:"Adapt each section to a 390px frame."},
+    {stage:"critique", title:"One critique against the must-haves", tag:"together", tool:"Claude", minutes:15, fidelity:"final", goodEnough:"A fix list of 5 or fewer. If the must-haves pass, it ships.", why:"One round, measured against the brief, instead of endless second-guessing.", prompt:"Here are screenshots of a homepage design (desktop and mobile). Must-haves: [MUST-HAVES]. For each must-have, say pass or fail and why. Then list at most 5 fixes, most important first. Do not suggest a new direction.", check:["Every must-have got a pass or fail"]},
+    {stage:"polish", title:"Fix list and detail pass", tag:"you", tool:"Figma", minutes:45, fidelity:"final", goodEnough:"Fix list done or 45 minutes spent, whichever comes first", why:"Details get a budget, not forever.", prompt:"Work the fix list top down. Stop when it's done or the timer ends."},
+    {stage:"deliver", title:"Share with the client", tag:"you", tool:"Figma", minutes:15, fidelity:"final", goodEnough:"Link sent with 3 lines of context", why:"Done is shipped.", prompt:"Share the prototype link with a short note: what changed, what you want feedback on, by when."}
+  ]
+};
+
+/* ================= state ================= */
+const S = {db:null, user:null, sample:null, me:null, jobs:[], parking:[], guide:null, playbooks:null,
+  loaded:{jobs:false}, editing:null, timer:null, local:false, example:clone(EXAMPLE), clock:null,
+  projects:[], cards:[], assets:null, localBlobs:{}, wallSection:{}, wallTag:{}, showParked:false, compare:[], draftProject:null,
+  board:{tag:"", project:"", hearts:false, minStars:0, allSections:false, sort:"new"}, curHash:"", lastHash:"",
+  kits:{}, projTab:{}, drawerTab:"insp", drawerSec:"inspiration", drawerOpen:false};
+function clone(o){return JSON.parse(JSON.stringify(o))}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function guide(){return (S.guide && S.guide.length) ? S.guide : STARTER_GUIDE}
+function playbooks(){return (S.playbooks && S.playbooks.length) ? S.playbooks : STARTER_PLAYBOOKS}
+function family(id){return playbooks().find(f=>f.id===id) || playbooks().find(f=>f.id==="other") || playbooks()[0]}
+function toolByName(n){return guide().find(t=>t.name.toLowerCase()===String(n||"").toLowerCase())}
+function stageName(k){return (SPINE.find(s=>s.key===k)||{name:k||"Steps"}).name}
+function stageBar(j,k){const f=family(j.family); return f&&f.stages[k]?f.stages[k].bar:"";}
+const $ = s=>document.querySelector(s);
+
+/* ================= saving ================= */
+const chains = {}; let pending = 0;
+function setStatus(){ $("#saveStatus").textContent = S.local ? "Not saving: this view has no storage" : pending ? "Saving…" : ""; }
+function save(path, data){
+  if(!S.db) return Promise.resolve();
+  pending++; setStatus();
+  const run = ()=> S.db.doc(path).set(data).catch(e=>{
+    if(e && e.code==="unavailable") return new Promise(r=>setTimeout(r,800+Math.random()*800)).then(()=>S.db.doc(path).set(data));
+    throw e; });
+  chains[path] = (chains[path]||Promise.resolve()).then(run).catch(e=>{
+    toast(e && e.code==="invalid_argument" ? "You can view this Lab but not save to it. Ask Nathan for edit access." : "Couldn't save just now. Your last change may not be kept.");
+  }).finally(()=>{pending--; setStatus();});
+  return chains[path];
+}
+function getJob(id){ if(id==="example") return S.example; return S.jobs.find(j=>j.id===id); }
+function putJob(job, noRender){
+  job.updatedAt = Date.now();
+  if(job.example){ S.example = job; if(!noRender) render(); return; }
+  const i = S.jobs.findIndex(j=>j.id===job.id);
+  if(i>=0) S.jobs[i]=job; else S.jobs.unshift(job);
+  const {id, ...body} = job;
+  save("jobs/"+id, JSON.parse(JSON.stringify(body)));
+  if(!noRender) render();
+}
+
+/* ================= boot ================= */
+async function boot(){
+  render();
+  S.curHash = location.hash.slice(1);
+  window.addEventListener("hashchange", ()=>{ S.lastHash=S.curHash; S.curHash=location.hash.slice(1); S.addPaste=null; flushClock(true); stopTimer(); S.editing=null; closeLayer(); render(); window.scrollTo(0,0); });
+  document.addEventListener("visibilitychange", ()=>{ if(document.hidden) flushClock(false); else if(S.clock) S.clock.since=Date.now(); });
+  const c = window.claude;
+  if(!c || !c.use){ S.local=true; S.loaded.jobs=true; setStatus(); render(); return; }
+  const [db,user,sample,assets] = await Promise.all([c.use("db").catch(()=>null), c.use("user").catch(()=>null), c.use("sample").catch(()=>null), c.use("assets").catch(()=>null)]);
+  S.db=db; S.user=user; S.sample=sample; S.assets=assets;
+  try{ S.me = user ? await user.id() : null; }catch(e){}
+  if(!db){ S.local=true; S.loaded.jobs=true; setStatus(); render(); return; }
+  const timeout = setTimeout(()=>{ if(!S.loaded.jobs){ S.loaded.jobs=true; toast("Your saved work can't be reached yet. It may show up in a moment."); render(); } },10000);
+  const docs = snap => snap.docs.map(d=>({id:d.id, ...clone(d.data()||{})}));
+  db.collection("jobs").onSnapshot(snap=>{
+    if(!snap.metadata.fromCache) clearTimeout(timeout);
+    S.jobs = docs(snap).filter(j=>!j.trashedAt).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+    S.loaded.jobs=true; softRender();
+  }, ()=>{ S.loaded.jobs=true; render(); });
+  db.collection("projects").onSnapshot(snap=>{ S.projects = docs(snap).filter(p=>!p.trashedAt).sort((a,b)=>(a.name||"").localeCompare(b.name||"")); softRender(); }, ()=>{});
+  db.collection("cards").onSnapshot(snap=>{ S.cards = docs(snap).filter(c=>!c.trashedAt).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)); softRender(); }, ()=>{});
+  db.collection("kits").onSnapshot(snap=>{ const m={}; snap.docs.forEach(d=>{ m[d.id]=clone(d.data()||{}); }); S.kits=m; softRender(); }, ()=>{});
+  db.collection("parking").onSnapshot(snap=>{ S.parking = docs(snap).sort((a,b)=>(b.at||0)-(a.at||0)); softRender(); }, ()=>{});
+  db.doc("lab/guide").onSnapshot(s=>{ S.guide = s.exists ? clone(s.data().tools||[]) : null; softRender(); }, ()=>{});
+  db.doc("lab/playbooks").onSnapshot(s=>{ S.playbooks = s.exists ? clone(s.data().families||[]) : null; softRender(); }, ()=>{});
+}
+/* Data arriving from storage never redraws a view with a form in progress. */
+function softRender(){
+  if(S.waiting){ S.waiting=false; render(); return; }
+  const v=view().v; const a=document.activeElement;
+  if(v==="focus"){ const d=document.querySelector(".drawer"), r=view(), j=getJob(r.id);
+    if(d && j && !d.contains(a) && !$("#layer").innerHTML){ d.outerHTML=drawer(j); wireKit(r); wireWall2(r); } renderNav(); return; }
+  const typing = a && $("#app").contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName);
+  if(["home","job","parking","projects","project","board","compare","settings"].includes(v) && !S.editing && !(v==="project" && S.projTab[view().id]==="kit") && !typing && !$("#layer").innerHTML) render(); else renderNav();
+}
+
+/* ================= routing ================= */
+function view(){
+  const h = location.hash.slice(1); let m;
+  if(!h || h==="home") return {v:"home"};
+  if(["guide","parking","new","playbooks","projects","board","compare","settings"].includes(h)) return {v:h};
+  if((m=h.match(/^project-([a-z0-9]+)$/))) return {v:"project", id:m[1]};
+  if((m=h.match(/^card-([a-z0-9]+)$/))) return {v:"card", id:m[1]};
+  if((m=h.match(/^job-([a-z0-9]+)$/))) return {v:"job", id:m[1]};
+  if((m=h.match(/^focus-([a-z0-9]+)$/))) return {v:"focus", id:m[1]};
+  return {v:"home"};
+}
+function go(h){ if(location.hash==="#"+h) render(); else location.hash=h; }
+function renderNav(){
+  const v = view().v;
+  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("on", a.dataset.v===v || (a.dataset.v==="home" && ["home","new","job","focus"].includes(v)) || (a.dataset.v==="projects" && ["project"].includes(v)) || (a.dataset.v==="board" && ["card","compare"].includes(v)) || (a.dataset.v==="settings" && ["guide","playbooks","parking"].includes(v))));
+  $("#parkCount").textContent = S.parking.filter(p=>!p.done).length;
+}
+function render(){
+  S.waiting=false;
+  renderNav();
+  const r = view(), app = $("#app");
+  const map = {home:homeView, new:newView, guide:guideView, parking:parkingView, playbooks:playbooksView, projects:projectsView, board:boardView, compare:compareView, settings:settingsView};
+  if(r.v==="job") app.innerHTML = jobView(r.id);
+  else if(r.v==="project") app.innerHTML = projectView(r.id);
+  else if(r.v==="card") app.innerHTML = cardView(r.id);
+  else if(r.v==="focus") app.innerHTML = focusView(r.id);
+  else app.innerHTML = map[r.v]();
+  wire(r);
+}
+
+/* ================= step helpers ================= */
+function liveSteps(j){ return (j.steps||[]).filter(s=>!s.removed); }
+function firstOpen(j){ return (j.steps||[]).find(s=>!s.removed && s.status!=="done" && s.status!=="skipped"); }
+function curStep(j){
+  const st=j.steps||[];
+  if(j.pin!=null && st[j.pin] && !st[j.pin].removed && !st[j.pin].status) return st[j.pin];
+  return firstOpen(j);
+}
+function sortByStage(steps){ return steps.map((s,i)=>({s,i})).sort((a,b)=>((SPINE_IDX[a.s.stage]??99)-(SPINE_IDX[b.s.stage]??99))||(a.i-b.i)).map(x=>x.s); }
+function stagesOf(j){ const seen=[]; liveSteps(j).forEach(s=>{ const k=s.stage||"_"; if(!seen.includes(k)) seen.push(k); }); return seen; }
+
+/* ================= views ================= */
+let draftTask = "";
+function homeView(){
+  const active = S.jobs.filter(j=>j.status!=="done");
+  const done = S.jobs.filter(j=>j.status==="done");
+  const lots = S.parking.filter(p=>!p.done).slice(0,5);
+  const showExample = S.loaded.jobs && S.jobs.length===0;
+  return `<div class="stack" style="gap:28px">
+    ${S.local?`<div class="banner">This view can't save. Open the Lab from its claude.ai link while signed in to keep your work.</div>`:""}
+    ${nowCard(active.length?active:(showExample?[S.example]:[]))}
+    ${S.jobs.filter(j=>!j.projectId).length?`<div class="card stack" style="gap:10px;border-color:var(--you)"><h3>These plans need a project</h3><p class="muted" style="font-size:14px">Every plan lives in a project, so its inspiration and kit have a home.</p>
+      ${S.jobs.filter(j=>!j.projectId).map(j=>`<div class="row"><a href="#job-${j.id}" style="flex:1">${esc(j.title)}</a><select data-assign="${j.id}" style="width:auto" aria-label="Project"><option value="">Choose…</option>${S.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}<option value="__new">+ New project…</option></select></div>`).join("")}</div>`:""}
+    <section class="stack">
+      <span class="eyebrow">${active.length?"Or start something new":"Start here"}</span>
+      <h1>What are you working on?</h1>
+      <form class="task-input" id="startForm">
+        <input type="text" id="taskInput" placeholder="e.g. Redesign the homepage for a client" value="${esc(draftTask)}" autocomplete="off" aria-label="Task">
+        <button class="btn primary big" type="submit">Plan it</button>
+      </form>
+      <div class="spine" aria-label="Every plan follows this order">${SPINE.map(s=>`<span>${s.name}</span>`).join("")}</div>
+      <p class="muted" style="font-size:14px">Every plan follows this order. Nothing starts with polish.</p>
+    </section>
+    <div class="grid2">
+      <section class="stack">
+        <h2>Pick up where you left off</h2>
+        ${!S.loaded.jobs?`<div class="empty"><span class="spin"></span> Loading your work…</div>`:""}
+        <div class="jobs">${active.map(jobCard).join("")}${showExample?jobCard(S.example):""}</div>
+        ${S.loaded.jobs && !active.length && !showExample?`<div class="empty">Nothing in progress. Type a task above to plan it.</div>`:""}
+        ${done.length?`<details><summary class="muted" style="cursor:pointer">Finished (${done.length})</summary><div class="jobs" style="margin-top:12px">${done.map(jobCard).join("")}</div></details>`:""}
+      </section>
+      <aside class="stack">
+        <div class="card stack">
+          <h3>Which tool should I use?</h3>
+          <p class="muted" style="font-size:14px">Describe one small job. The Lab picks from your tool guide.</p>
+          <form id="pickForm" class="stack" style="gap:10px">
+            <input type="text" id="pickInput" placeholder="e.g. resize 12 photos for Instagram" autocomplete="off" aria-label="Small job">
+            <button class="btn" type="submit">Pick a tool</button>
+          </form>
+          <div id="pickOut"></div>
+        </div>
+        <div class="card stack">
+          <div class="row"><h3>Parking lot</h3><span class="spacer"></span><a href="#parking" class="btn small ghost">See all</a></div>
+          ${lots.length?`<ul class="parklist">${lots.map(p=>`<li><span>${esc(p.text)}</span></li>`).join("")}</ul>`:`<p class="muted" style="font-size:14px">Ideas and interruptions go here so they stop pulling at you. Press <span class="kbd">P</span> anywhere.</p>`}
+        </div>
+      </aside>
+    </div>
+  </div>`;
+}
+function nowCard(active){
+  const j = active[0]; if(!j) return "";
+  const s = curStep(j); if(!s) return "";
+  const live=liveSteps(j); const n=live.indexOf(s)+1;
+  return `<section class="card stack" style="border-left:6px solid var(--${s.tag==="you"?"you":s.tag==="ai"?"ai":"tog"});gap:12px">
+    <span class="eyebrow">Do this next · ${esc(j.title)} · step ${n} of ${live.length}</span>
+    <div class="row" style="align-items:flex-end"><div class="stack" style="gap:8px;flex:1 1 340px"><h2 style="font-size:26px">${esc(s.title)}</h2>
+      <div class="row" style="gap:8px">${s.stage?`<span class="stage-chip">${stageName(s.stage)}</span>`:""}<span class="tag ${s.tag}">${TAGS[s.tag].label}</span>${s.tool&&s.tool!=="None"?`<b>${esc(s.tool)}</b>`:""}<span class="muted">~${+s.minutes||"?"} min</span></div></div>
+      <a class="btn primary big" href="#focus-${j.id}">Go</a></div>
+  </section>`;
+}
+function jobCard(j){
+  const steps = liveSteps(j);
+  const finished = steps.filter(s=>s.status).length;
+  const pct = steps.length? Math.round(finished/steps.length*100):0;
+  const cur = curStep(j);
+  const f = j.family ? family(j.family) : null;
+  return `<div class="card job" data-open="${j.id}" tabindex="0" role="link">
+    <div class="row" style="gap:8px">${j.example?`<span class="chip ex">Example</span>`:""}${j.projectId?`<span class="chip">${esc(projName(j.projectId))}</span>`:""}${f?`<span class="chip">${esc(f.name)}</span>`:""}${j.status==="done"?`<span class="chip">Finished</span>`:""}<span class="muted" style="font-size:13px">${finished} of ${steps.length}</span></div>
+    <h3>${esc(j.title)}</h3>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    ${cur?`<p class="next">${cur.stage?`<span class="stage-chip" style="margin-right:6px">${stageName(cur.stage)}</span>`:""}Next: <b>${esc(cur.title)}</b></p>`:`<p class="next muted">All steps finished</p>`}
+  </div>`;
+}
+
+function guessFamily(t){
+  t=t.toLowerCase();
+  if(/\b(site|website|web|ui|ux|app|landing|homepage|dashboard|screen|portal)\b/.test(t)) return "web";
+  if(/\b(logo|brand|branding|identity|rebrand|wordmark)\b/.test(t)) return "brand";
+  if(/\b(package|packaging|bag|box|label|can|bottle|pouch|print|poster|flyer|menu|sticker|merch)\b/.test(t)) return "packaging";
+  if(/\b(post|posts|social|instagram|campaign|ad|ads|tiktok|story|stories|reel|carousel|email)\b/.test(t)) return "social";
+  return "other";
+}
+function guessProject(t){ t=(t||"").toLowerCase(); const p=S.projects.find(p=>t.includes((p.name||"").toLowerCase())); return p?p.id:null; }
+function guessFresh(t){ return /\b(redesign|overhaul|refresh|update|rework|revamp|rebrand|improve|fix)\b/i.test(t) ? "redesign" : "new"; }
+
+function newView(){
+  const fam = guessFamily(draftTask), fresh = guessFresh(draftTask);
+  return `<div class="focus stack" style="gap:22px">
+    <a href="#home" class="btn ghost small" style="align-self:flex-start">← Back</a>
+    <div class="stack" style="gap:8px"><span class="eyebrow">Quick intake · about a minute</span><h1>${esc(draftTask||"New task")}</h1>
+    <p class="muted">Answer what you can. Blanks are fine; the plan marks what it doesn't know with [BRACKETS].</p></div>
+    <form id="intakeForm" class="card stack">
+      <div><label for="f-title">The task</label><input type="text" id="f-title" value="${esc(draftTask)}" required></div>
+      <div><label for="f-proj">Project <span class="hint">the client; tasks in a project share one wall</span></label>
+        <select id="f-proj">${S.projects.map(p=>`<option value="${p.id}" ${p.id===(S.draftProject||guessProject(draftTask))?"selected":""}>${esc(p.name)}</option>`).join("")}<option value="__new" ${!S.projects.length?"selected":""}>+ New project…</option>${S.projects.some(p=>p.name===STUDIO)?"":`<option value="__studio">${STUDIO}</option>`}</select>
+        <input type="text" id="f-projnew" placeholder="Project name, e.g. Mystery Vending" style="margin-top:8px;display:${S.projects.length?"none":"block"}"></div>
+      <div><label for="f-family">What kind of work is it?</label>
+        <select id="f-family">${playbooks().map(f=>`<option value="${f.id}" ${f.id===fam?"selected":""}>${esc(f.name)} · ${esc(f.blurb||"")}</option>`).join("")}</select></div>
+      <div><span style="font-weight:700;font-size:14px;display:block;margin-bottom:6px">Starting point</span>
+        <div class="seg" role="radiogroup">
+          <label><input type="radio" name="fresh" value="new" ${fresh==="new"?"checked":""}><span>Starting fresh</span></label>
+          <label><input type="radio" name="fresh" value="redesign" ${fresh==="redesign"?"checked":""}><span>Reworking something that exists</span></label>
+        </div></div>
+      <div><label for="f-musts">Must-haves <span class="hint">the critique checks against these</span></label><textarea id="f-musts" placeholder="e.g. clear contact button; feels premium; FDA-safe wording on claims"></textarea></div>
+      <div><label for="f-deadline">When is it due?</label><input type="text" id="f-deadline" placeholder="e.g. Friday, client review on the 14th"></div>
+      <div><label for="f-have">What do you already have?</label><input type="text" id="f-have" placeholder="e.g. logo files, old site, client's notes"></div>
+      <div><label for="f-done">What does done look like?</label><input type="text" id="f-done" placeholder="e.g. desktop + mobile homepage ready to send"></div>
+      <div><label for="f-today">How much time do you have today?</label><input type="text" id="f-today" placeholder="e.g. 2 hours"></div>
+      <div><label for="f-notes">Anything special about this client? <span class="hint">industry rules, quirks</span></label><textarea id="f-notes" style="min-height:60px"></textarea></div>
+      <div class="row"><button class="btn primary big" type="submit" id="planBtn">${S.sample?"Make my plan":"Get a planning prompt"}</button>
+      ${!S.sample?`<span class="muted" style="font-size:14px">Claude can't plan inside this page for your account yet. You'll copy one prompt into Claude and paste the answer back.</span>`:""}</div>
+    </form>
+    <div id="planOut"></div>
+  </div>`;
+}
+
+function jobView(id){
+  const j = getJob(id);
+  if(!j) return S.loaded.jobs?`<div class="empty">That task isn't here. <a href="#home">Back to Today</a></div>`:`${(S.waiting=true,"")}<div class="empty"><span class="spin"></span> Loading…</div>`;
+  const steps = j.steps||[], live = liveSteps(j);
+  const cur = curStep(j), curStage = cur ? cur.stage : null;
+  const total = live.reduce((a,s)=>a+(+s.minutes||0),0);
+  const f = j.family ? family(j.family) : null;
+  const polishMin = live.filter(s=>s.stage==="polish").reduce((a,s)=>a+(+s.minutes||0),0);
+  const opts = ["None",...guide().map(t=>t.name)];
+  let n=0, lastStage=null, html="";
+  steps.forEach((s,i)=>{
+    if(s.removed) return; n++;
+    if(s.stage && s.stage!==lastStage){
+      lastStage=s.stage;
+      const inStage = live.filter(x=>x.stage===s.stage), doneIn = inStage.filter(x=>x.status).length;
+      html += `<li class="stage-head ${doneIn===inStage.length?"done":""}"><h3>${stageName(s.stage)}</h3><span class="bar-text">Good enough: ${esc(stageBar(j,s.stage))}</span><span class="count">${doneIn}/${inStage.length}</span></li>`;
+    }
+    const ed = S.editing===i, isCur = s===cur;
+    const ahead = cur && !s.status && !isCur && (SPINE_IDX[s.stage]??0) > (SPINE_IDX[curStage]??0);
+    html += `<li class="card step ${s.status||""} ${isCur?"current":""}">
+      <span class="n">${s.status==="done"?"✓":n}</span>
+      <div>
+        <h3>${esc(s.title)}</h3>
+        <div class="meta"><span class="tag ${s.tag}">${TAGS[s.tag].label}</span>${s.tool&&s.tool!=="None"?`<b>${esc(s.tool)}</b>`:""}<span>${+s.minutes||"?"} min</span>${s.fidelity?`<span class="fid ${s.fidelity}">${FID[s.fidelity]||s.fidelity}</span>`:""}${s.status==="skipped"?`<span class="chip">Skipped</span>`:""}${s.spentSec?`<span>spent ${Math.round(s.spentSec/60)} min</span>`:""}</div>
+        ${!ed && s.goodEnough?`<p style="font-size:14px;margin-top:6px"><b style="color:var(--good)">Good enough:</b> ${esc(s.goodEnough)}</p>`:""}
+      </div>
+      <div class="tools">
+        ${!s.status && !isCur?`<button class="btn small" data-act="jump" data-i="${i}" ${ahead?'data-ahead="1"':""}>Do now</button>`:""}
+        <button class="btn small ghost" data-act="up" data-i="${i}" aria-label="Move up">↑</button>
+        <button class="btn small ghost" data-act="down" data-i="${i}" aria-label="Move down">↓</button>
+        <button class="btn small" data-act="edit" data-i="${i}">${ed?"Close":"Edit"}</button>
+      </div>
+      ${ed?editArea(s,i,opts,j):""}
+    </li>`;
+  });
+  return `<div class="stack" style="gap:22px">
+    <a href="#home" class="btn ghost small" style="align-self:flex-start">← Today</a>
+    ${j.example?`<div class="banner">This is an example plan. Try it freely; nothing is saved until you press “Use this plan”.</div>`:""}
+    <div class="row" style="align-items:flex-end">
+      <div class="stack" style="gap:8px;flex:1 1 380px">
+        <span class="eyebrow">${f?esc(f.name)+" · "+(j.fresh==="redesign"?"reworking":"starting fresh")+" · ":""}${live.length} steps · about ${fmtMin(total)}</span>
+        <h1>${esc(j.title)}</h1><p class="muted" style="max-width:65ch">${esc(j.summary||"")}</p>
+        ${j.example?"":j.projectId?`<p style="font-size:14px"><b>Project:</b> <a href="#project-${j.projectId}">${esc(projName(j.projectId))}</a> · <a href="#project-${j.projectId}">Open the wall</a></p>`
+          :`<div class="row" style="gap:8px;font-size:14px"><b>Project:</b><select id="jobProj" style="width:auto"><option value="">None yet</option>${S.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}<option value="__new">+ New project…</option></select><input type="text" id="jobProjNew" placeholder="Project name" style="display:none;width:auto"></div>`}
+        ${f?`<p style="font-size:14px"><b>Polish budget:</b> ${f.polishBudget} min${polishMin>f.polishBudget?` <span style="color:var(--warn)">(plan has ${polishMin}, trim it)</span>`:""}</p>`:""}
+      </div>
+      <div class="actions">
+        ${j.example?`<button class="btn" data-act="adopt">Use this plan</button>`:""}
+        ${cur?`<a class="btn primary big" href="#focus-${j.id}">${live.some(s=>s.status)?"Continue":"Start"} focus mode</a>`:`<span class="chip">All steps finished</span>`}
+      </div>
+    </div>
+    ${f?spineBar(j):""}
+    <ol class="steps">${html}</ol>
+    <div class="row"><button class="btn" data-act="addStep">+ Add a step</button><span class="spacer"></span>
+      ${!j.example?`<button class="btn ghost small" data-act="trashJob">Remove this task</button>`:""}</div>
+  </div>`;
+}
+function spineBar(j){
+  const cur=curStep(j); const ci = cur? (SPINE_IDX[cur.stage]??-1) : 99; const used=stagesOf(j);
+  return `<div class="spine">${SPINE.filter(s=>used.includes(s.key)).map(s=>{ const i=SPINE_IDX[s.key]; return `<span class="${i<ci?"past":i===ci?"on":""}">${s.name}</span>`; }).join("")}</div>`;
+}
+function editArea(s,i,opts,j){
+  const fam = j.family ? family(j.family) : null;
+  return `<div class="edit-area">
+    <div><label for="e-title">Step</label><input type="text" id="e-title" value="${esc(s.title)}"></div>
+    <div class="two">
+      <div><label for="e-tag">Who does it</label><select id="e-tag">${Object.keys(TAGS).map(k=>`<option value="${k}" ${k===s.tag?"selected":""}>${TAGS[k].label}</option>`).join("")}</select></div>
+      <div><label for="e-tool">Tool</label><select id="e-tool">${opts.map(o=>`<option ${o===s.tool?"selected":""}>${esc(o)}</option>`).join("")}</select></div>
+      <div><label for="e-min">Minutes</label><input type="text" id="e-min" value="${esc(s.minutes)}" inputmode="numeric"></div>
+    </div>
+    <div class="two">
+      <div><label for="e-stage">Stage</label><select id="e-stage">${SPINE.map(x=>`<option value="${x.key}" ${x.key===s.stage?"selected":""}>${x.name}</option>`).join("")}</select></div>
+      <div><label for="e-fid">Fidelity</label><select id="e-fid">${Object.keys(FID).map(k=>`<option value="${k}" ${k===s.fidelity?"selected":""}>${FID[k]}</option>`).join("")}</select></div>
+      <div></div>
+    </div>
+    <div><label for="e-good">Good enough when</label><input type="text" id="e-good" value="${esc(s.goodEnough)}"></div>
+    <div><label for="e-prompt">Prompt or instruction</label><textarea id="e-prompt">${esc(s.prompt)}</textarea></div>
+    <div><label for="e-check">Check before accepting <span class="hint">one per line</span></label><textarea id="e-check" style="min-height:60px">${esc((s.check||[]).join("\n"))}</textarea></div>
+    <div class="row"><button class="btn primary" data-act="saveStep" data-i="${i}">Save step</button>
+      ${s.status?`<button class="btn" data-act="reopen" data-i="${i}">Mark not done</button>`:""}
+      <span class="spacer"></span><button class="btn ghost" data-act="removeStep" data-i="${i}">Remove step</button></div>
+  </div>`;
+}
+function fmtMin(m){ if(!m) return "?"; if(m<60) return m+" min"; const h=Math.floor(m/60), r=m%60; return h+" h"+(r?" "+r+" min":""); }
+
+function focusView(id){
+  const j = getJob(id);
+  if(!j) return S.loaded.jobs?`<div class="empty">That task isn't here. <a href="#home">Back to Today</a></div>`:`${(S.waiting=true,"")}<div class="empty"><span class="spin"></span> Loading…</div>`;
+  const live = liveSteps(j);
+  const s = curStep(j);
+  if(!s){ return wrapView(j); }
+  startClock(j, s);
+  const pos = live.indexOf(s);
+  const t = toolByName(s.tool);
+  const after = live.filter((x,k)=>k>pos && !x.status).slice(0,2);
+  const parkedHere = S.parking.filter(p=>p.jobId===j.id && !p.done).length;
+  const hasPrev = live.some((x,k)=>k<pos && x.status);
+  const kitOn = j.projectId && s.tag!=="you" && (kitOf(j.projectId)||{}).status==="locked";
+  const needKit = s.stage==="direction" && j.projectId && !kitReady(kitOf(j.projectId));
+  return `<div class="focuswrap"><div class="focus">
+    <div class="row" style="margin-bottom:14px"><a href="#job-${j.id}" class="btn ghost small">← Full plan</a>${hasPrev?`<button class="btn small" data-act="prevStep">← Previous step</button>`:""}<span class="spacer"></span><span class="muted" style="font-size:14px">${esc(j.title)}</span></div>
+    ${j.family?`<div style="margin-bottom:14px">${spineBar(j)}</div>`:`<div class="bar" style="margin-bottom:18px"><i style="width:${Math.round(live.filter(x=>x.status).length/live.length*100)}%"></i></div>`}
+    ${j.pin!=null && s===j.steps[j.pin] && firstOpen(j)!==s?`<div class="banner" style="margin-bottom:14px">You jumped ahead. After this step the Lab takes you back to <b>${esc(firstOpen(j).title)}</b>.</div>`:""}
+    <article class="focus-card ${s.tag}">
+      <div class="row"><span class="eyebrow">Step ${pos+1} of ${live.length}</span>${s.stage?`<span class="stage-chip">${stageName(s.stage)}</span>`:""}<span class="tag ${s.tag}">${TAGS[s.tag].label}</span>${s.fidelity?`<span class="fid ${s.fidelity}">${FID[s.fidelity]}</span>`:""}<span class="spacer"></span><span class="muted">~${+s.minutes||"?"} min</span></div>
+      <h1>${esc(s.title)}</h1>
+      ${s.why?`<p class="muted" style="max-width:65ch">${esc(s.why)}</p>`:""}
+      ${s.goodEnough?`<div class="goodenough"><b>Good enough when:</b> ${esc(s.goodEnough)}<br><span class="muted" style="font-size:14px">When it meets this, it's done. Better than this belongs in Polish.</span></div>`:""}
+      ${s.tool && s.tool!=="None" ? `<div class="useline"><span class="muted">Use</span><span class="tname">${esc(s.tool)}</span><span class="spacer"></span>
+        ${t&&t.link?`<a class="btn small" href="${esc(t.link)}" target="_blank" rel="noopener">Open ${esc(t.name)} ↗</a>`:""}</div>`:""}
+      ${s.prompt?`<div class="stack" style="gap:8px"><div class="row"><span class="eyebrow">${s.tag==="you"?"What to do":"Prompt to paste"}</span><span class="spacer"></span>${s.tag!=="you"?`<button class="btn small primary" data-act="copyPrompt">Copy prompt</button>`:""}</div><div class="prompt-box" id="promptText">${esc(s.prompt)}</div>${kitOn?`<p class="muted" style="font-size:13px">＋ The ${esc(projName(j.projectId))} kit is added when you copy, written for ${esc(s.tool)}.</p>`:""}</div>`:""}
+      ${needKit?`<div class="banner info row" style="gap:10px"><span style="flex:1">This is Direction: a good moment to draft the project kit from your hearted inspiration.</span><button class="btn small primary" data-act="draftKitHere">Draft the kit</button></div>`:""}
+      ${s.check&&s.check.length?`<div class="stack" style="gap:6px"><span class="eyebrow">Check before you accept it</span>${s.check.map((c,k)=>`<label style="font-weight:400;display:flex;gap:8px;align-items:flex-start;margin:0"><input type="checkbox" id="chk-${k}" style="margin-top:4px">${esc(c)}</label>`).join("")}</div>`:""}
+      ${s.tag!=="you"?`<div><button class="btn small" data-act="fixOpen">Not right? Get a fix-up prompt</button><div id="fixOut"></div></div>`:""}
+      <div><label for="f-out">Notes or result <span class="hint">paste what the tool gave you, or a link</span></label><textarea id="f-out" placeholder="Optional">${esc(s.output||"")}</textarea></div>
+      <div class="row"><button class="btn" data-act="timer" id="timerBtn">Start ${+s.minutes||25}-min timer</button><span class="timer" id="timerOut" aria-live="polite"></span></div>
+      <div class="actions">
+        <button class="btn primary big" data-act="done">It's good enough, next</button>
+        <button class="btn big" data-act="stuck">I'm stuck</button>
+        <button class="btn ghost" data-act="skip">Skip</button>
+      </div>
+      <div id="stuckOut"></div>
+    </article>
+    ${after[0] && s.tool!=="None" && after[0].tool===s.tool?`<p class="banner info" style="margin-top:16px">Next step also uses ${esc(s.tool)}. Keep that tab open.</p>`:""}
+    ${after.length?`<div class="later"><span class="eyebrow">Coming up</span>${after.map(u=>`<div>${u.stage?stageName(u.stage)+" · ":""}${esc(u.title)}</div>`).join("")}</div>`:""}
+    <p class="muted" style="font-size:14px;margin-top:18px">Something else popping into your head? Press <span class="kbd">P</span> to park it${parkedHere?` · ${parkedHere} parked from this task`:""}. Paste a screenshot anytime to save it to the project.</p>
+  </div>${drawer(j)}<button class="btn primary drawer-fab" data-act="drawerToggle">Project drawer</button></div>`;
+}
+function wrapView(j){
+  const w = j.wrap||{}; const live=liveSteps(j);
+  const rows = stagesOf(j).map(k=>{ const st=live.filter(s=>(s.stage||"_")===k); const plan=st.reduce((a,s)=>a+(+s.minutes||0),0); const act=Math.round(st.reduce((a,s)=>a+(s.spentSec||0),0)/60); return {k,plan,act}; });
+  const tracked = rows.some(r=>r.act>0);
+  return `<div class="focus stack" style="gap:20px">
+    <div class="row"><a href="#job-${j.id}" class="btn ghost small">← Full plan</a><button class="btn small" data-act="prevStep">← Back to the last step</button></div>
+    <span class="eyebrow">All steps finished</span><h1>Nice work on “${esc(j.title)}”.</h1>
+    ${tracked?`<div class="card stack"><h3>Where the time went</h3><table class="timetable"><thead><tr><th>Stage</th><th>Planned</th><th>Actual</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr><td>${stageName(r.k)}</td><td>${r.plan} min</td><td class="${r.act>r.plan*1.3&&r.act-r.plan>10?"over":""}">${r.act} min</td></tr>`).join("")}</tbody></table>
+      <p class="muted" style="font-size:13px">Actual counts the time the step was open in focus mode.</p></div>`:""}
+    <form id="wrapForm" class="card stack">
+      <p class="muted">Two quick questions make the next plan better.</p>
+      <div><label for="w-slow">What slowed you down?</label><textarea id="w-slow">${esc(w.slow||"")}</textarea></div>
+      <div><label for="w-ai">Which AI step didn't help, or which step should AI have done?</label><textarea id="w-ai">${esc(w.ai||"")}</textarea></div>
+      <div class="row"><button class="btn primary" type="submit">${j.status==="done"?"Update":"Finish task"}</button></div>
+    </form>
+  </div>`;
+}
+
+function toolResults(){
+  const t={};
+  S.jobs.forEach(j=>(j.steps||[]).forEach(s=>{ const r=s.toolResult; if(!r||!s.tool||s.tool==="None") return;
+    const x=t[s.tool]=t[s.tool]||{great:0,ok:0,missed:0,better:{}}; x[r.rating]=(x[r.rating]||0)+1; if(r.better) x.better[r.better]=(x.better[r.better]||0)+1; }));
+  return t;
+}
+function toolResultsText(){
+  const t=toolResults(); const names=Object.keys(t); if(!names.length) return "None yet.";
+  return names.map(n=>{ const x=t[n]; const b=Object.entries(x.better).map(([k,v])=>`${k} (${v})`).join(", "); return `${n}: ${x.great} nailed it, ${x.ok} okay, ${x.missed} missed${b?"; she said a better tool would have been "+b:""}`; }).join("\n");
+}
+function guideView(){
+  const g = guide(), usingStarter = !(S.guide && S.guide.length), tr=toolResults();
+  return `<div class="stack" style="gap:22px">
+    <div class="stack" style="gap:8px"><span class="eyebrow">The rules the planner follows</span><h1>Tool guide</h1>
+    <p class="muted" style="max-width:65ch">Each plan picks tools only from this list. Keep it short and give each tool a clear job. Edit anything; changes apply to the next plan.</p></div>
+    ${Object.keys(tr).length?`<div class="card stack"><h3>Your results</h3><p class="muted" style="font-size:14px">From the “how did it do?” question after each AI step. The planner reads this too.</p>
+      <table class="results"><thead><tr><th>Tool</th><th>Nailed it</th><th>Okay</th><th>Missed</th><th>Better tool, by your call</th></tr></thead><tbody>
+      ${Object.entries(tr).map(([n,x])=>`<tr><td><b>${esc(n)}</b></td><td>${x.great}</td><td>${x.ok}</td><td>${x.missed}</td><td>${esc(Object.entries(x.better).map(([k,v])=>k+" ×"+v).join(", "))}</td></tr>`).join("")}</tbody></table></div>`:""}
+    ${usingStarter?`<div class="banner info">This is the starter guide. Saving any change makes it yours.</div>`:""}
+    <div class="stack">
+      ${g.map((t,i)=>`<div class="card tool-row" data-ti="${i}">
+        <div><label for="t-name-${i}">Tool</label><input type="text" id="t-name-${i}" value="${esc(t.name)}">
+          <select id="t-kind-${i}" style="margin-top:8px" aria-label="Kind"><option value="ai" ${t.kind==="ai"?"selected":""}>AI tool</option><option value="hands" ${t.kind==="hands"?"selected":""}>Your hands</option></select></div>
+        <div><label for="t-good-${i}">Use it for</label><textarea id="t-good-${i}">${esc(t.goodFor)}</textarea></div>
+        <div><label for="t-avoid-${i}">Not for</label><textarea id="t-avoid-${i}">${esc(t.avoidFor)}</textarea>
+          <input type="text" id="t-link-${i}" style="margin-top:8px" value="${esc(t.link)}" placeholder="Link (optional)" aria-label="Link"></div>
+        <div><label>&nbsp;</label><button class="btn small ghost" data-act="delTool" data-i="${i}">Remove</button></div>
+      </div>`).join("")}
+    </div>
+    <div class="row"><button class="btn" data-act="addTool">+ Add a tool</button><span class="spacer"></span><button class="btn primary big" data-act="saveGuide">Save guide</button></div>
+  </div>`;
+}
+
+let pbOpen = null;
+function playbooksView(){
+  const pbs = playbooks(), starter = !(S.playbooks && S.playbooks.length);
+  return `<div class="stack" style="gap:22px">
+    <div class="stack" style="gap:8px"><span class="eyebrow">The order behind every plan</span><h1>Playbooks</h1>
+    <p class="muted" style="max-width:65ch">Every task follows the same spine. Each kind of work fills it in its own way: its own “good enough” bar and typical steps for each stage. Claude then fits the steps to the job. Edit these as you learn what works.</p></div>
+    <div class="spine">${SPINE.map(s=>`<span>${s.name}</span>`).join("")}</div>
+    ${starter?`<div class="banner info">These are the starter playbooks. Saving any change makes them yours.</div>`:""}
+    ${pbs.map((f,fi)=>`<div class="card stack">
+      <div class="row"><div class="stack" style="gap:4px;flex:1"><h2>${esc(f.name)}</h2><p class="muted" style="font-size:14px">${esc(f.blurb||"")} · polish budget ${f.polishBudget} min</p></div>
+        <button class="btn small" data-act="pbToggle" data-i="${fi}">${pbOpen===fi?"Close":"Open"}</button></div>
+      ${pbOpen===fi?`<div>
+        <div class="row" style="margin-bottom:10px"><label for="pb-budget" style="margin:0">Polish budget (minutes)</label><input type="text" id="pb-budget" value="${f.polishBudget}" style="width:90px" inputmode="numeric"></div>
+        ${SPINE.map(s=>{ const st=f.stages[s.key]||{}; return `<div class="pb-stage">
+          <div><b>${s.name}</b><br><span class="muted" style="font-size:13px">${esc(st.goal||"")}</span></div>
+          <div><label for="pb-bar-${s.key}">Good enough when</label><textarea id="pb-bar-${s.key}" style="min-height:60px">${esc(st.bar||"")}</textarea></div>
+          <div><label for="pb-steps-${s.key}">Typical steps <span class="hint">one per line</span></label><textarea id="pb-steps-${s.key}" style="min-height:60px">${esc(st.steps||"")}</textarea></div>
+        </div>`; }).join("")}
+        <div class="row" style="margin-top:12px"><button class="btn primary" data-act="pbSave" data-i="${fi}">Save ${esc(f.name)}</button></div>
+      </div>`:`<div class="spine">${SPINE.map(s=>`<span title="${esc((f.stages[s.key]||{}).bar||"")}">${esc((f.stages[s.key]||{}).goal||s.name)}</span>`).join("")}</div>`}
+    </div>`).join("")}
+  </div>`;
+}
+
+function parkingView(){
+  const open = S.parking.filter(p=>!p.done), closed = S.parking.filter(p=>p.done);
+  const jt = id => { const j=getJob(id); return j? j.title : ""; };
+  return `<div class="stack" style="gap:22px">
+    <div class="stack" style="gap:8px"><span class="eyebrow">Out of your head, not lost</span><h1>Parking lot</h1>
+    <p class="muted" style="max-width:65ch">Anything that tries to pull you off the current step goes here. Come back when the step is done.</p></div>
+    <form id="parkInline" class="task-input"><input type="text" id="parkInlineInput" placeholder="Park a thought…" autocomplete="off" aria-label="Thought"><button class="btn primary" type="submit">Park it</button></form>
+    ${open.length?`<ul class="parklist">${open.map(p=>`<li><span>${esc(p.text)}${p.jobId&&jt(p.jobId)?` <span class="chip">${esc(jt(p.jobId))}</span>`:""}</span>
+      <button class="btn small" data-act="parkPlan" data-id="${p.id}">Plan it</button><button class="btn small ghost" data-act="parkDone" data-id="${p.id}">Done</button></li>`).join("")}</ul>`:`<div class="empty">Nothing parked. Press <span class="kbd">P</span> anytime to add one.</div>`}
+    ${closed.length?`<details><summary class="muted" style="cursor:pointer">Cleared (${closed.length})</summary><ul class="parklist" style="margin-top:10px">${closed.map(p=>`<li class="done"><span>${esc(p.text)}</span><button class="btn small ghost" data-act="parkUndo" data-id="${p.id}">Bring back</button></li>`).join("")}</ul></details>`:""}
+  </div>`;
+}
+
+/* ================= wiring ================= */
+function wire(r){
+  const app = $("#app");
+  app.onclick = e=>{
+    const open = e.target.closest("[data-open]"); if(open){ go("job-"+open.dataset.open); return; }
+    const b = e.target.closest("[data-act]"); if(!b) return;
+    act(b.dataset.act, b, r);
+  };
+  app.onkeydown = e=>{ if(e.key==="Enter"){ const open=e.target.closest("[data-open]"); if(open) go("job-"+open.dataset.open); } };
+  const sf = $("#startForm"); if(sf) sf.onsubmit = e=>{ e.preventDefault(); const v=$("#taskInput").value.trim(); if(!v){ $("#taskInput").focus(); return; } draftTask=v; go("new"); };
+  const ti = $("#taskInput"); if(ti) ti.oninput = ()=>{ draftTask = ti.value; };
+  const pf = $("#pickForm"); if(pf) pf.onsubmit = e=>{ e.preventDefault(); pickTool($("#pickInput").value.trim()); };
+  const inf = $("#intakeForm"); if(inf) inf.onsubmit = e=>{ e.preventDefault(); startPlan(); };
+  const ft = $("#f-title"); if(ft) ft.onchange = ()=>{ $("#f-family").value = guessFamily(ft.value); const gp=guessProject(ft.value); if(gp) $("#f-proj").value=gp; };
+  const fp = $("#f-proj"); if(fp) fp.onchange = ()=>{ $("#f-projnew").style.display = fp.value==="__new"?"block":"none"; };
+  const wf = $("#wrapForm"); if(wf) wf.onsubmit = e=>{ e.preventDefault(); const j=getJob(r.id); j.wrap={slow:$("#w-slow").value.trim(), ai:$("#w-ai").value.trim()}; j.status="done"; putJob(j); toast("Task finished."); go("home"); };
+  const out = $("#f-out"); if(out) out.onchange = ()=>{ const j=getJob(r.id); const s=curStep(j); if(s){ s.output=out.value; flushClock(false); putJob(j, true); } };
+  wireWall(r); wireWall2(r); wireKit(r);
+  const pi = $("#parkInline"); if(pi) pi.onsubmit = e=>{ e.preventDefault(); const v=$("#parkInlineInput").value.trim(); if(v){ addPark(v,null); $("#parkInlineInput").value=""; } };
+}
+
+function act(a, b, r){
+  const j = r.id ? getJob(r.id) : null;
+  const i = b.dataset.i!=null ? +b.dataset.i : null;
+  if(a==="edit"){ S.editing = S.editing===i? null : i; render(); return; }
+  if(a==="addCard"){ openAddCard({projectId:r.v==="project"?r.id:null, section: b.dataset.addsec||"inspiration", stay:true}); return; }
+  if(a==="addLink"){ const s=curStep(j); const pick=S.drawerSec||"inspiration"; openAddCard({projectId:j.projectId, jobId:j.id, stage:s&&s.stage, section: pick==="stage"?(STAGE_TO_SECTION[s&&s.stage]||"designs"):pick, stay:true}); return; }
+  if(a==="renameProj"){ const p=projById(r.id); modal(`<h2>Rename project</h2><form id="rpf" class="stack" style="gap:12px"><input type="text" id="rpn" value="${esc(p.name)}" aria-label="Project name"><div class="row"><button class="btn primary" type="submit">Save</button><button class="btn ghost" type="button" id="rpc">Cancel</button></div></form>`,{rpc:closeLayer}); $("#rpf").onsubmit=e=>{ e.preventDefault(); const v=$("#rpn").value.trim(); if(!v) return; p.name=v.slice(0,80); putProject(p); closeLayer(); render(); }; return; }
+  if(a==="taskHere"){ S.draftProject=r.id; draftTask=""; go("new"); return; }
+  if(a==="toggleParked"){ S.showParked=!S.showParked; render(); return; }
+  if(a==="clearCompare"){ S.compare=[]; if(r.v==="compare") go(S.compareBack||"projects"); else render(); return; }
+  if(a==="backFromCompare"){ go(S.compareBack||"projects"); return; }
+  if(a==="saveCard"){ const c=S.cards.find(x=>x.id===r.id); c.title=$("#c-title").value.trim()||c.title; c.projectId=$("#c-proj").value||c.projectId; c.section=$("#c-sec").value; c.note=$("#c-note").value; const u=$("#c-url"); if(u) c.url=u.value.trim(); putCard(c); toast("Saved."); return; }
+  if(a==="trashCard"){ const c=S.cards.find(x=>x.id===r.id); c.trashedAt=Date.now(); putCard(c, true); S.cards=S.cards.filter(x=>x.id!==c.id); S.compare=S.compare.filter(x=>x!==c.id); go(c.projectId?"project-"+c.projectId:"board"); toast("Card removed.", ()=>{ delete c.trashedAt; putCard(c); }); return; }
+  if(a==="up"||a==="down"){ const st=j.steps; const dir=a==="up"?-1:1; let to=i+dir; while(st[to]&&st[to].removed) to+=dir; if(!st[to]) return;
+    if(st[to].stage!==st[i].stage){ toast("Steps stay inside their stage. Change the stage in Edit to move it further."); return; }
+    [st[i],st[to]]=[st[to],st[i]]; if(j.pin===i) j.pin=to; else if(j.pin===to) j.pin=i; S.editing=null; putJob(j); return; }
+  if(a==="saveStep"){ const s=j.steps[i]; s.title=$("#e-title").value.trim()||s.title; s.tag=$("#e-tag").value; s.tool=$("#e-tool").value; s.minutes=parseInt($("#e-min").value,10)||s.minutes;
+    s.stage=$("#e-stage").value; s.fidelity=$("#e-fid").value; s.goodEnough=$("#e-good").value.trim(); s.prompt=$("#e-prompt").value; s.check=$("#e-check").value.split("\n").map(x=>x.trim()).filter(Boolean);
+    if(j.family){ const pinned=j.pin!=null?j.steps[j.pin]:null; j.steps=sortByStage(j.steps); j.pin = pinned? j.steps.indexOf(pinned) : null; }
+    S.editing=null; putJob(j); return; }
+  if(a==="reopen"){ delete j.steps[i].status; if(j.status==="done") j.status="active"; S.editing=null; putJob(j); return; }
+  if(a==="removeStep"){ j.steps[i].removed=true; if(j.pin===i) j.pin=null; S.editing=null; putJob(j); toast("Step removed.", ()=>{ delete j.steps[i].removed; putJob(j); }); return; }
+  if(a==="addStep"){ const cur=curStep(j); const ns={title:"New step", stage:cur?cur.stage:"build", tag:"you", tool:"None", minutes:15, fidelity:"mid", goodEnough:"", why:"", prompt:""};
+    const pinned=j.pin!=null?j.steps[j.pin]:null; j.steps.push(ns); if(j.family){ j.steps=sortByStage(j.steps); j.pin=pinned?j.steps.indexOf(pinned):null; } if(j.status==="done") j.status="active"; S.editing=j.steps.indexOf(ns); putJob(j); return; }
+  if(a==="trashJob"){ confirmBox("Remove this task?", "It disappears from Today. Nathan can still recover it.", "Remove", ()=>{ j.trashedAt=Date.now(); putJob(j); S.jobs=S.jobs.filter(x=>x.id!==j.id); go("home"); }); return; }
+  if(a==="adopt"){ modal(`<h2>Which project is this for?</h2><p class="muted" style="font-size:14px">Every plan lives in a project.</p>${projSelect("adProj","")}<input type="text" id="adNew" placeholder="Project name" style="display:${S.projects.length?"none":"block"}"><div class="row"><button class="btn primary" id="adOk">Use this plan</button><button class="btn ghost" id="adNo">Cancel</button></div>`,{adNo:closeLayer, adOk:()=>{
+      let pid=$("#adProj").value; if(pid==="__new"||!S.projects.length){ const n=$("#adNew").value.trim(); if(!n){ $("#adNew").style.display="block"; $("#adNew").focus(); return; } pid=newProject(n).id; } if(!pid){ toast("Pick a project."); return; }
+      closeLayer(); const nj = clone(j); nj.id=uid(); delete nj.example; nj.projectId=pid; nj.createdAt=Date.now(); nj.by=S.me; putJob(nj); S.example=clone(EXAMPLE); go("job-"+nj.id); toast("Plan saved to "+projName(pid)+"."); }});
+    $("#adProj").onchange=()=>{ $("#adNew").style.display=$("#adProj").value==="__new"?"block":"none"; }; return; }
+  if(a==="jump"){ jumpTo(j, i, !!b.dataset.ahead); return; }
+  if(a==="copyPrompt"){ const s=curStep(j); copyText(promptWithKit(j, s)); return; }
+  if(a==="drawerToggle"){ S.drawerOpen=!S.drawerOpen; render(); return; }
+  if(a==="openKit"){ const pid=r.v==="project"?r.id:j&&j.projectId; if(!pid) return; S.projTab[pid]="kit"; go("project-"+pid); return; }
+  if(a==="draftKitHere"){ S.drawerTab="kit"; S.drawerOpen=true; draftKit(j.projectId); return; }
+  if(a==="kitDraft"){ draftKit(r.id); return; }
+  if(a==="kitLock"){ const k=readKitForm(r.id); if(!kitReady(k)){ toast("Add at least a palette, mood or image style first."); return; } k.status="locked"; k.lockedAt=Date.now(); putKit(r.id,k); toast("Kit locked. Every AI prompt in this project now carries it."); render(); return; }
+  if(a==="kitUnlock"){ const k=clone(kitOf(r.id)); k.status="draft"; putKit(r.id,k); render(); return; }
+  if(a==="kitColors"){ const k=readKitForm(r.id); const pool=cardsOf(r.id).filter(c=>c.section==="inspiration"&&c.status!=="parked").sort((x,y)=>((y.heart?10:0)+(y.stars||0))-((x.heart?10:0)+(x.stars||0))); pullColors(pool).then(hex=>{ if(!hex.length){ toast("No images to read colors from yet."); return; } const have=new Set(k.palette.map(c=>c.hex)); hex.forEach(h=>{ if(!have.has(h) && k.palette.length<10) k.palette.push({hex:h,name:"",role:""}); }); putKit(r.id,k); render(); toast("Colors pulled. Name them and cut what you don't want."); }); return; }
+  if(a==="kitDownload"){ const pid=r.id; const md=`# ${projName(pid)} kit\n\n${kitText(pid,"Claude")}\n\n## For image tools\n\n${kitText(pid,"Gemini")}\n`; window.claude.use("downloads").then(d=>{ if(!d){ copyText(md); return; } d.save({filename:projName(pid).replace(/[^A-Za-z0-9 -]/g,"").trim().replace(/\s+/g,"-").toLowerCase()+"-kit.md", data:md}).then(()=>toast("Kit downloaded."), ()=>copyText(md)); }); return; }
+    if(a==="kitAddColor"){ const k=readKitForm(r.id); k.palette.push({hex:"#000000",name:"",role:""}); putKit(r.id,k); render(); return; }
+  if(a==="timer"){ toggleTimer(j); return; }
+  if(a==="done"){ finishStep(j, "done"); return; }
+  if(a==="skip"){ finishStep(j, "skipped"); return; }
+  if(a==="prevStep"){ prevStep(j); return; }
+  if(a==="stuck"){ stuck(j); return; }
+  if(a==="fixOpen"){ $("#fixOut").innerHTML=`<form id="fixForm" class="stack" style="gap:10px;margin-top:10px">
+      <div><label for="fix-got">What did it give you? <span class="hint">paste the part that's off</span></label><textarea id="fix-got" style="min-height:70px"></textarea></div>
+      <div><label for="fix-wrong">What's wrong with it?</label><input type="text" id="fix-wrong" placeholder="e.g. too long, wrong tone, looks AI-generated"></div>
+      <div><button class="btn" type="submit">Write the fix-up prompt</button></div></form>`;
+    $("#fixForm").onsubmit=e=>{ e.preventDefault(); fixIt(j); }; return; }
+  if(a==="splitStuck"){ insertSmall(j, b.dataset.small); return; }
+  if(a==="addTool"){ const g=readGuideForm(); g.push({id:uid(),name:"",kind:"ai",goodFor:"",avoidFor:"",link:""}); S.guide=g; render(); return; }
+  if(a==="delTool"){ const g=readGuideForm(); g.splice(i,1); S.guide=g; render(); return; }
+  if(a==="saveGuide"){ const g=readGuideForm().filter(t=>t.name.trim()); S.guide=g; save("lab/guide",{tools:g, updatedAt:Date.now(), by:S.me}); toast("Tool guide saved."); render(); return; }
+  if(a==="pbToggle"){ pbOpen = pbOpen===i? null : i; render(); return; }
+  if(a==="pbSave"){ const pbs=clone(playbooks()); const f=pbs[i]; f.polishBudget=parseInt($("#pb-budget").value,10)||f.polishBudget;
+    SPINE.forEach(s=>{ f.stages[s.key]=f.stages[s.key]||{goal:s.name}; f.stages[s.key].bar=$("#pb-bar-"+s.key).value.trim(); f.stages[s.key].steps=$("#pb-steps-"+s.key).value.trim(); });
+    S.playbooks=pbs; save("lab/playbooks",{families:pbs, updatedAt:Date.now(), by:S.me}); toast(f.name+" saved. Next plans use it."); render(); return; }
+  if(a==="parkDone"||a==="parkUndo"){ const p=S.parking.find(x=>x.id===b.dataset.id); p.done = a==="parkDone"; const {id,...body}=p; save("parking/"+id, body); render(); return; }
+  if(a==="parkPlan"){ const p=S.parking.find(x=>x.id===b.dataset.id); draftTask=p.text; p.done=true; const {id,...body}=p; save("parking/"+id, body); go("new"); return; }
+  if(a==="usePlanText"){ const plan=parsePlan($("#pasteBack").value, S.pendingIntake); if(!plan){ $("#pasteErr").textContent="That doesn't look like the plan. Paste Claude's whole reply, including the curly brackets."; return; } finishPlan(plan, S.pendingIntake); return; }
+  if(a==="copyPlanPrompt"){ copyText(S.pendingPrompt); return; }
+}
+function readGuideForm(){
+  const g = clone(guide());
+  document.querySelectorAll("[data-ti]").forEach(row=>{ const i=+row.dataset.ti; const t=g[i]; if(!t) return;
+    t.name=$("#t-name-"+i).value.trim(); t.kind=$("#t-kind-"+i).value; t.goodFor=$("#t-good-"+i).value.trim(); t.avoidFor=$("#t-avoid-"+i).value.trim(); t.link=$("#t-link-"+i).value.trim(); if(!t.id) t.id=uid(); });
+  return g;
+}
+
+/* ================= gates, jumping, finishing ================= */
+function jumpTo(j, i, ahead){
+  const target=j.steps[i], cur=firstOpen(j);
+  const doIt=()=>{ j.pin=i; putJob(j, true); go("focus-"+j.id); };
+  if(!ahead){ doIt(); return; }
+  const left = liveSteps(j).filter(s=>!s.status && (SPINE_IDX[s.stage]??0) < (SPINE_IDX[target.stage]??0)).length;
+  const polish = target.stage==="polish";
+  modal(`<h2>Not yet?</h2>
+    <p>You're in <b>${stageName(cur.stage)}</b>. “${esc(target.title)}” is in <b>${stageName(target.stage)}</b>, with ${left} step${left===1?"":"s"} before it.</p>
+    <p class="muted">${polish?"Fine details belong in Polish, after the design is set. Polishing now is how a day disappears.":"Jumping ahead is how time goes to things that don't move the needle yet."}</p>
+    <div class="row"><button class="btn primary" id="mStay">Stay on track</button><button class="btn ghost" id="mGo">Do it anyway</button></div>`,
+    {mStay:closeLayer, mGo:()=>{ closeLayer(); doIt(); }});
+}
+function finishStep(j, how){
+  const s=curStep(j); if(!s) return;
+  const o=$("#f-out"); if(o) s.output=o.value;
+  flushClock(false); stopTimer();
+  const next = ()=>{
+    s.status=how; s.finishedAt=Date.now();
+    if(j.pin!=null && j.steps[j.pin]===s) j.pin=null;
+    const nx = curStep(j);
+    const leavingStage = how==="done" && s.stage && j.family && (!nx || nx.stage!==s.stage) && !liveSteps(j).some(x=>x.stage===s.stage && !x.status);
+    if(leavingStage){
+      const bar=stageBar(j,s.stage);
+      const kitQ = s.stage==="direction" && j.projectId ? kitOf(j.projectId) : null;
+      const offerLock = s.stage==="direction" && j.projectId && kitReady(kitQ) && kitQ.status!=="locked";
+      const noKit = s.stage==="direction" && j.projectId && !kitReady(kitQ);
+      modal(`<span class="eyebrow">Leaving ${stageName(s.stage)}</span><h2>Does ${stageName(s.stage)} meet the bar?</h2>
+        <div class="goodenough"><b>Good enough:</b> ${esc(bar)}</div>
+        ${offerLock?`<p>Locking the kit now means every prompt from here on matches this direction.</p>`:noKit?`<p class="muted">There's no kit yet. Drafting one now keeps every later prompt on this direction.</p>`:`<p class="muted">Good enough is the goal. Anything more belongs in Polish.</p>`}
+        <div class="row">${offerLock?`<button class="btn primary" id="gLock">Yes, and lock the kit</button>`:""}<button class="btn ${offerLock?"":"primary"}" id="gYes">Yes, on to ${nx&&nx.stage?stageName(nx.stage):"the finish"}</button>${noKit?`<button class="btn" id="gKit">Draft the kit first</button>`:""}<button class="btn ghost" id="gNo">Not yet</button></div>`,
+        {gLock:()=>{ const k=clone(kitQ); k.status="locked"; k.lockedAt=Date.now(); putKit(j.projectId,k); closeLayer(); putJob(j); toast("Direction done. Kit locked."); window.scrollTo(0,0); },
+         gKit:()=>{ closeLayer(); delete s.status; delete s.finishedAt; S.drawerTab="kit"; S.drawerOpen=true; putJob(j, true); draftKit(j.projectId); },
+         gYes:()=>{ closeLayer(); putJob(j); toast(stageName(s.stage)+" done."); window.scrollTo(0,0); },
+         gNo:()=>{ closeLayer(); const k=j.steps.indexOf(s); j.steps.splice(k+1,0,{title:"Close the gap in "+stageName(s.stage), stage:s.stage, tag:"you", tool:s.tool, minutes:15, fidelity:s.fidelity, goodEnough:bar, why:"Only what's missing for the bar. Nothing extra.", prompt:"Write the one thing missing for the bar, do only that."}); putJob(j); toast("Added a 15-minute step to close the gap."); }});
+      return;
+    }
+    putJob(j); if(how==="done") toast("Step done."); window.scrollTo(0,0);
+  };
+  if(how==="done" && s.tag!=="you" && s.tool && s.tool!=="None" && !s.toolResult) askToolResult(s, next); else next();
+}
+function askToolResult(s, then){
+  const others = guide().filter(t=>t.name!==s.tool).map(t=>t.name);
+  let rating=null;
+  modal(`<h2>How did ${esc(s.tool)} do?</h2><p class="muted" style="font-size:14px">One tap. Over time this tells you which tool to trust for what.</p>
+    <div class="rate"><button class="btn" data-r="great">Nailed it</button><button class="btn" data-r="ok">Okay</button><button class="btn" data-r="missed">Missed</button></div>
+    <div><label for="rBetter">A better tool would have been <span class="hint">optional</span></label><select id="rBetter"><option value="">No, this was the right tool</option>${others.map(n=>`<option>${esc(n)}</option>`).join("")}</select></div>
+    <div class="row"><button class="btn primary" id="rSave">Save</button><button class="btn ghost" id="rSkip">Skip</button></div>`,
+    {rSave:()=>{ if(rating) s.toolResult={rating, better:$("#rBetter").value||null}; closeLayer(); then(); }, rSkip:()=>{ closeLayer(); then(); }});
+  document.querySelectorAll("[data-r]").forEach(bt=>bt.onclick=()=>{ rating=bt.dataset.r; document.querySelectorAll("[data-r]").forEach(x=>x.classList.toggle("on",x===bt)); });
+}
+function prevStep(j){
+  const st=j.steps; const cur=curStep(j); const end = cur? st.indexOf(cur) : st.length;
+  for(let k=end-1;k>=0;k--){ if(!st[k].removed && st[k].status){ delete st[k].status; delete st[k].finishedAt; j.pin=null; if(j.status==="done") j.status="active"; flushClock(false); stopTimer(); putJob(j); window.scrollTo(0,0); toast("Back one step. Your notes are kept."); return; } }
+}
+
+/* ================= time tracking ================= */
+function startClock(j, s){
+  const key = j.id+":"+j.steps.indexOf(s);
+  if(S.clock && S.clock.key===key) return;
+  flushClock(false);
+  S.clock = {key, job:j, step:s, since:Date.now()};
+}
+function flushClock(saveIt){
+  const c=S.clock; if(!c) return;
+  if(!document.hidden){ const sec=Math.min(7200, Math.round((Date.now()-c.since)/1000)); c.step.spentSec=(c.step.spentSec||0)+sec; }
+  c.since=Date.now();
+  if(saveIt){ const j=c.job; S.clock=null; if(!j.example && (c.step.spentSec||0)>0) putJob(j, true); }
+}
+
+/* ================= planning ================= */
+function guideText(){ return guide().map(t=>`- ${t.name} (${t.kind==="hands"?"her own hands":"AI tool"}): use for ${t.goodFor}.${t.avoidFor?" Not for: "+t.avoidFor+".":""}`).join("\n"); }
+function playbookText(f, fresh){
+  return SPINE.map(s=>{ const st=f.stages[s.key]||{}; return `Stage "${s.key}" (${s.name}): ${st.goal||""}. Good enough: ${st.bar||""}. Typical steps: ${(st.steps||"").split("\n").filter(Boolean).filter(x=>fresh==="redesign"||!/^redesign:|^rebrand:/i.test(x)).map(x=>x.replace(/^(redesign|rebrand):\s*/i,"")).join("; ")}`; }).join("\n");
+}
+function planPrompt(intake){
+  const f = family(intake.family);
+  return `You plan design work for Jenna, a senior graphic designer with ten years of experience who runs her own studio. In her words: her process is often all over the place, she jumps ahead (straight to high-fidelity mockups and micro-spacing before inspiration and direction are set), she gets sidetracked, she overuses Claude where another tool would do better, she wants senior-level work that does not look AI-generated, and perfectionism stalls her even when the work is good.
+
+Build her a plan she follows one step at a time.
+
+The spine. Every step belongs to one stage, and stages run in this order: understand, explore, direction, rough, build, critique, polish, deliver.
+- Never put spacing, fine detail or refinement work before the polish stage. Never start high fidelity before the rough stage is done.
+- The explore stage includes one timed "free exploration" step (tag "you", fidelity "rough", 20 to 30 minutes).
+- The critique stage has exactly one step: one critique round measured against her must-haves. If they pass, it ships.
+- Polish steps together must fit the polish budget of ${f.polishBudget} minutes.
+
+This task's playbook: ${f.name} (${intake.fresh==="redesign"?"reworking something that already exists":"starting fresh"}).
+${playbookText(f, intake.fresh)}
+Use the typical steps as a starting point, then fit them to this job and client. Add steps the job needs (for example a claims or compliance check for a regulated industry, or printer specs for packaging) and drop ones it doesn't.
+
+Rules for each step:
+- For a whole project, 8 to 14 steps. For a single piece, 5 to 8 steps.
+- Each step is one sitting of 5 to 90 minutes. The first step must be something she can start in under 2 minutes.
+- tag: "you" for taste, judgment, client calls and all final visual design; "ai" when a tool can do the whole step and she only checks it; "together" when AI drafts and she edits.
+- AI does research, organizing, references and first drafts of words. Final visuals are always "you" steps in her hands tools. AI images are references and moodboards only.
+- tool: exactly one name from the tool guide, or "None". Do not default to Claude: pick the tool whose strengths fit the step. When the order allows, put steps that use the same tool back to back.
+- fidelity: "rough", "mid" or "final".
+- goodEnough: a concrete bar for this step that tells her when to stop, for example "gray boxes, real headings, no colour, no fonts".
+- prompt: for "ai" and "together" steps, a complete prompt she can paste as-is with all the context it needs (audience, goal, must-haves, tone, format, length), asking for a specific, checkable format. Use only facts from the task; put unknowns in [BRACKETS]. For "you" steps, one or two plain lines telling her what to do.
+- check: for "ai" and "together" steps, 2 or 3 short things to check before accepting the result.
+- why: one short line on why this step comes here and why this tool.
+- Plain, warm, short sentences. No hype.
+
+${S.pendingProject && kitReady(kitOf(S.pendingProject)) ? "This project's kit (design system). Fit the steps to it. Do not paste it into prompts; the Lab attaches it automatically:\n"+kitText(S.pendingProject,"Claude")+"\n\n" : ""}Her own tool results so far:
+${toolResultsText()}
+
+Tool guide:
+${guideText()}
+
+Task: ${intake.title}
+Must-haves: ${intake.musts||"not given"}
+Due: ${intake.deadline||"not given"}
+Already has: ${intake.have||"not given"}
+Done looks like: ${intake.done||"not given"}
+Time today: ${intake.today||"not given"}
+About this client: ${intake.notes||"nothing given"}
+
+Reply with only JSON in this shape:
+{"title":"short name for the task","summary":"one sentence on the approach","steps":[{"stage":"understand","title":"","tag":"you","tool":"None","minutes":15,"fidelity":"rough","goodEnough":"","why":"","prompt":"","check":[]}]}`;
+}
+function normalizePlan(p, intake){
+  if(!p || !Array.isArray(p.steps) || !p.steps.length) return null;
+  const names = guide().map(t=>t.name.toLowerCase());
+  let steps = p.steps.slice(0,18).map(s=>{
+    const tag=["you","ai","together"].includes(s.tag)?s.tag:"you";
+    let tool=String(s.tool||"None"); const ti=names.indexOf(tool.toLowerCase()); tool = ti>=0 ? guide()[ti].name : "None";
+    const stage = SPINE_IDX[s.stage]!=null ? s.stage : "build";
+    return {stage, title:String(s.title||"Step").slice(0,160), tag, tool, minutes:Math.max(1,Math.min(240,parseInt(s.minutes,10)||15)),
+      fidelity:FID[s.fidelity]?s.fidelity:"mid", goodEnough:String(s.goodEnough||""), why:String(s.why||""), prompt:String(s.prompt||""),
+      check:(Array.isArray(s.check)?s.check:[]).map(String).filter(Boolean).slice(0,4)}; });
+  const f = family(intake.family);
+  if(!steps.some(s=>s.stage==="critique")) steps.push({stage:"critique", title:"One critique against the must-haves", tag:"together", tool:toolByName("Claude")?"Claude":"None", minutes:15, fidelity:"final", goodEnough:(f.stages.critique||{}).bar||"Checked once against the must-haves", why:"One round against the brief instead of endless second-guessing.", prompt:`Here are screenshots of my design. Must-haves: ${intake.musts||"[MUST-HAVES]"}. For each must-have, say pass or fail and why. Then list at most 5 fixes, most important first. Do not suggest a new direction.`, check:["Every must-have got a pass or fail"]});
+  steps = sortByStage(steps); /* the spine is enforced here, whatever came back */
+  return {title:String(p.title||"").slice(0,120), summary:String(p.summary||"").slice(0,400), steps};
+}
+function parsePlan(raw, intake){ try{ const a=raw.indexOf("{"), b=raw.lastIndexOf("}"); if(a<0||b<a) return null; return normalizePlan(JSON.parse(raw.slice(a,b+1)), intake); }catch(e){ return null; } }
+
+async function startPlan(){
+  let projectId = $("#f-proj").value;
+  if(projectId==="__new"){ const n=$("#f-projnew").value.trim(); if(!n){ $("#f-projnew").style.display="block"; $("#f-projnew").focus(); return; } projectId=newProject(n).id; }
+  if(projectId==="__studio"){ projectId=(S.projects.find(p=>p.name===STUDIO)||newProject(STUDIO)).id; }
+  if(!projectId){ toast("Pick a project for this plan."); return; }
+  S.pendingProject = projectId||null;
+  const intake = {title:$("#f-title").value.trim(), family:$("#f-family").value, fresh:(document.querySelector('input[name="fresh"]:checked')||{}).value||"new",
+    musts:$("#f-musts").value.trim(), deadline:$("#f-deadline").value.trim(), have:$("#f-have").value.trim(), done:$("#f-done").value.trim(), today:$("#f-today").value.trim(), notes:$("#f-notes").value.trim()};
+  if(!intake.title) return;
+  draftTask = intake.title; S.pendingIntake = intake; S.pendingPrompt = planPrompt(intake);
+  const out = $("#planOut");
+  if(!S.sample){ showPasteBack(out); return; }
+  const btn = $("#planBtn"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Planning… about 30 seconds`;
+  try{
+    const val = await S.sample.json(S.pendingPrompt, {modelTier:"default"});
+    const plan = normalizePlan(val, intake); if(!plan) throw {code:"bad_plan"};
+    finishPlan(plan, intake);
+  }catch(e){
+    btn.disabled=false; btn.textContent="Try again";
+    if(e && e.code==="not_granted"){ S.sample=null; showPasteBack(out); return; }
+    out.innerHTML = `<div class="banner">${e&&e.code==="rate_limited"?"Claude is busy. Wait a minute and try again.":"The plan didn't come through."} You can also plan it in your own Claude:</div>`;
+    const div=document.createElement("div"); out.appendChild(div); showPasteBack(div);
+  }
+}
+function showPasteBack(out){
+  out.innerHTML = `<div class="card stack">
+    <h3>Plan it in your own Claude</h3>
+    <ol class="muted" style="margin:0;padding-left:20px"><li>Copy the planning prompt.</li><li>Paste it into a new Claude chat and send.</li><li>Copy Claude's whole reply and paste it below.</li></ol>
+    <div class="row"><button class="btn primary" data-act="copyPlanPrompt">Copy planning prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Open Claude ↗</a></div>
+    <div><label for="pasteBack">Claude's reply</label><textarea id="pasteBack" style="min-height:140px" placeholder='Starts with {"title": …'></textarea></div>
+    <p id="pasteErr" style="color:var(--warn);font-size:14px"></p>
+    <div><button class="btn primary" data-act="usePlanText">Use this plan</button></div>
+  </div>`;
+}
+function finishPlan(plan, intake){
+  const job = {id:uid(), projectId:S.pendingProject||null, title:plan.title||intake.title, family:intake.family, fresh:intake.fresh, summary:plan.summary, intake, steps:plan.steps, status:"active", createdAt:Date.now(), by:S.me};
+  draftTask=""; S.draftProject=null; putJob(job); go("job-"+job.id);
+}
+
+/* ================= fix-up, stuck, tool picker ================= */
+async function fixIt(j){
+  const s=curStep(j), got=$("#fix-got").value.trim(), wrong=$("#fix-wrong").value.trim(), out=$("#fixOut");
+  if(!wrong){ $("#fix-wrong").focus(); return; }
+  const show=(txt)=>{ out.innerHTML=`<div class="stack" style="gap:8px;margin-top:10px"><span class="eyebrow">Paste this back into ${esc(s.tool)}, in the same chat</span><div class="prompt-box" id="fixText">${esc(txt)}</div><div><button class="btn small primary" id="fixCopy">Copy fix-up prompt</button></div></div>`; $("#fixCopy").onclick=()=>copyText($("#fixText").textContent); };
+  const template=()=>`That's close, but: ${wrong}.\nKeep everything else the same. Fix only that, and give me the full revised version in the same format.${s.check&&s.check.length?"\nBefore you answer, make sure: "+s.check.join("; ")+".":""}`;
+  if(!S.sample){ show(template()); return; }
+  out.innerHTML=`<p class="muted" style="margin-top:10px"><span class="spin"></span> Writing it…</p>`;
+  try{ const r=await S.sample(`Jenna, a senior designer, sent this prompt to ${s.tool}:\n---\n${s.prompt}\n---\nPart of what came back:\n---\n${got||"(not pasted)"}\n---\nWhat's wrong: ${wrong}\nWrite the short follow-up message she should send in the same chat so the next answer is right the first time. Be specific about what to change and what to keep. Reply with only the message.`,{modelTier:"quick"}); show((r.text||"").trim()||template()); }
+  catch(e){ show(template()); }
+}
+function insertSmall(j, text){ const s=curStep(j); const k=j.steps.indexOf(s); j.steps.splice(k,0,{title:text, stage:s.stage, tag:s.tag, tool:s.tool, minutes:5, fidelity:"rough", goodEnough:"Done in 5 minutes", why:"A smaller first move to get unstuck.", prompt:""}); if(j.pin!=null && j.pin>=k) j.pin++; putJob(j); toast("Added as a 5-minute step."); }
+async function stuck(j){
+  const s = curStep(j), out=$("#stuckOut");
+  const fallback = ()=>`<div class="card stack" style="background:var(--paper)"><h3>Make it smaller</h3><p>What's the 5-minute version of “${esc(s.title)}”? Write it below and do only that.</p>
+    <form id="smallForm" class="task-input"><input type="text" id="smallInput" placeholder="e.g. Just open the file and list what's missing" aria-label="Smaller step"><button class="btn" type="submit">Add as next step</button></form></div>`;
+  const wireSmall=()=>{ const f=$("#smallForm"); if(f) f.onsubmit=e=>{ e.preventDefault(); const v=$("#smallInput").value.trim(); if(v) insertSmall(j, v); }; };
+  if(!S.sample){ out.innerHTML=fallback(); wireSmall(); return; }
+  out.innerHTML = `<div class="card" style="background:var(--paper)"><span class="spin"></span> Finding a way in…</div>`;
+  try{
+    const v = await S.sample.json(`Jenna, a senior designer who struggles with perfectionism, is stuck on one step. Help her restart in one small move.
+Task: ${j.title}
+Step: ${s.title} (stage: ${stageName(s.stage)}, ${TAGS[s.tag].label}, tool: ${s.tool})
+Good enough for this step: ${s.goodEnough||"not set"}
+Step instruction: ${s.prompt}
+Her notes so far: ${s.output||"none"}
+Tool guide:
+${guideText()}
+Reply with only JSON: {"likely":"one short sentence on what usually blocks this step (perfectionism counts)","smallStep":"a first move she can finish in 5 minutes, starting with a verb","tip":"one practical tip, or a better-suited tool from the guide if the current one is wrong"}`, {modelTier:"quick"});
+    out.innerHTML = `<div class="card stack" style="background:var(--paper)">
+      <p class="muted">${esc(v.likely||"")}</p><p><b>Try this first:</b> ${esc(v.smallStep||"")}</p>${v.tip?`<p><b>Tip:</b> ${esc(v.tip)}</p>`:""}
+      <div><button class="btn" data-act="splitStuck" data-small="${esc(v.smallStep||"Smaller first move")}">Add it as a 5-minute step</button></div></div>`;
+  }catch(e){ out.innerHTML=fallback(); wireSmall(); }
+}
+async function pickTool(q){
+  const out=$("#pickOut"); if(!q){ $("#pickInput").focus(); return; }
+  const local = ()=>{ const words=q.toLowerCase().split(/\W+/).filter(w=>w.length>2); let best=null,score=0;
+    guide().forEach(t=>{ const hay=(t.name+" "+t.goodFor).toLowerCase(); const sc=words.reduce((a,w)=>a+(hay.includes(w)?1:0),0); if(sc>score){score=sc;best=t;} });
+    return best? {tool:best.name, why:"Closest match in your guide: "+best.goodFor} : {tool:"", why:"No clear match. Add a line to your tool guide for this kind of job."}; };
+  let r;
+  if(S.sample){ out.innerHTML=`<p class="muted"><span class="spin"></span> Picking…</p>`;
+    try{ r = await S.sample.json(`Pick the single best tool for this small design job from the guide. Do not default to Claude. Job: ${q}\nHer results so far:\n${toolResultsText()}\nTool guide:\n${guideText()}\nReply with only JSON: {"tool":"exact tool name from the guide","why":"one short sentence","prompt":"if it's an AI tool, a ready-to-paste prompt; else empty"}`, {modelTier:"quick"}); }
+    catch(e){ r = local(); }
+  } else r = local();
+  const t = toolByName(r.tool);
+  out.innerHTML = `<div class="stack" style="gap:8px;padding-top:6px;border-top:1px solid var(--line)">
+    ${r.tool?`<div class="row"><span style="font-family:var(--display);font-weight:800;font-size:20px">${esc(r.tool)}</span><span class="spacer"></span>${t&&t.link?`<a class="btn small" href="${esc(t.link)}" target="_blank" rel="noopener">Open ↗</a>`:""}</div>`:""}
+    <p class="muted" style="font-size:14px">${esc(r.why||"")}</p>
+    ${r.prompt?`<div class="prompt-box" id="pickPrompt" style="font-size:14px">${esc(r.prompt)}</div><div><button class="btn small" id="pickCopy">Copy prompt</button></div>`:""}</div>`;
+  const pc=$("#pickCopy"); if(pc) pc.onclick=()=>copyText($("#pickPrompt").textContent);
+}
+
+/* ================= timer: ends with the bar, not just a beep ================= */
+function toggleTimer(j, minutes){
+  if(S.timer && minutes==null){ stopTimer(); $("#timerBtn").textContent="Start timer again"; $("#timerOut").textContent=""; return; }
+  stopTimer();
+  const s=curStep(j); let left=(minutes||+s.minutes||25)*60; const btn=$("#timerBtn"), out=$("#timerOut"); btn.textContent="Stop timer";
+  const tick=()=>{ const el=document.getElementById("timerOut"); if(!el){ stopTimer(); return; }
+    const m=Math.floor(left/60), sec=left%60; el.textContent=`${m}:${String(sec).padStart(2,"0")} left`;
+    if(left<=0){ stopTimer(); el.textContent="Time's up"; timeUp(j); return; } left--; };
+  tick(); S.timer=setInterval(tick,1000);
+}
+function timeUp(j){
+  const s=curStep(j); if(!s) return;
+  modal(`<span class="eyebrow">Time's up</span><h2>Does it meet the bar?</h2>
+    ${s.goodEnough?`<div class="goodenough"><b>Good enough when:</b> ${esc(s.goodEnough)}</div>`:""}
+    <p class="muted">If it does, it's done. Better than good enough belongs in Polish.</p>
+    <div class="actions"><button class="btn primary" id="tYes">Yes, move on</button>
+    ${!s.extended?`<button class="btn" id="tMore">10 more minutes (once)</button>`:""}
+    <button class="btn ghost" id="tPark">Park the rest, move on</button></div>`,
+    {tYes:()=>{ closeLayer(); finishStep(j,"done"); },
+     tMore:()=>{ closeLayer(); s.extended=true; toggleTimer(j,10); },
+     tPark:()=>{ closeLayer(); addPark("Leftover from “"+s.title+"”", j.example?null:j.id, true); finishStep(j,"done"); }});
+}
+function stopTimer(){ if(S.timer){ clearInterval(S.timer); S.timer=null; } }
+
+/* ================= parking ================= */
+function addPark(text, jobId, quiet){
+  const p={id:uid(), text, jobId:jobId||null, at:Date.now(), by:S.me, done:false};
+  S.parking.unshift(p); const {id,...body}=p; save("parking/"+id, body); renderNav();
+  if(!quiet && (view().v==="parking"||view().v==="home")) render();
+  if(!quiet) toast("Parked. Back to it.");
+}
+function openPark(){
+  if($("#layer").innerHTML) return;
+  const r=view(); const jobId = (r.v==="job"||r.v==="focus") && r.id!=="example" ? r.id : null;
+  modal(`<h2>Park it for later</h2><p class="muted" style="font-size:14px">Write it down, then go straight back to what you were doing.</p>
+    <form id="parkForm" class="stack" style="gap:12px"><input type="text" id="parkInput" placeholder="The thought, idea or interruption" autocomplete="off" aria-label="Thought">
+    <div class="row"><button class="btn primary" type="submit">Park it</button><button class="btn ghost" type="button" id="parkCancel">Cancel</button><span class="spacer"></span><span class="muted" style="font-size:13px"><span class="kbd">Esc</span> to close</span></div></form>`,
+    {parkCancel:closeLayer});
+  $("#parkInput").focus();
+  $("#parkForm").onsubmit=e=>{ e.preventDefault(); const v=$("#parkInput").value.trim(); if(v) addPark(v, jobId); closeLayer(); };
+}
+$("#parkBtn").onclick=openPark;
+document.addEventListener("keydown", e=>{
+  if(e.key==="Escape"){ closeLayer(); return; }
+  const tag=(e.target.tagName||"").toLowerCase();
+  if((e.key==="p"||e.key==="P") && !e.metaKey && !e.ctrlKey && !e.altKey && !["input","textarea","select"].includes(tag)){ e.preventDefault(); openPark(); }
+});
+
+/* ================= small UI helpers ================= */
+function modal(html, handlers){
+  $("#layer").innerHTML = `<div class="overlay" id="ov"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;
+  Object.entries(handlers||{}).forEach(([id,fn])=>{ const el=document.getElementById(id); if(el) el.onclick=fn; });
+  const first=$("#layer").querySelector("button, input, select"); if(first) first.focus();
+}
+function closeLayer(){ $("#layer").innerHTML=""; }
+let toastT;
+function toast(msg, undo){
+  document.querySelectorAll(".toast").forEach(t=>t.remove());
+  const t=document.createElement("div"); t.className="toast"; t.setAttribute("role","status");
+  t.innerHTML = esc(msg) + (undo?` <button class="btn small" style="margin-left:10px">Undo</button>`:"");
+  document.body.appendChild(t);
+  if(undo) t.querySelector("button").onclick=()=>{ undo(); t.remove(); };
+  clearTimeout(toastT); toastT=setTimeout(()=>t.remove(), undo?6000:2600);
+}
+function copyText(txt){
+  navigator.clipboard.writeText(txt).then(()=>toast("Copied. Paste it into the tool."), ()=>{
+    modal(`<h2>Copy this</h2><textarea id="cpy" style="min-height:200px">${esc(txt)}</textarea><div class="row"><button class="btn" id="cpyClose">Close</button></div>`, {cpyClose:closeLayer});
+    const ta=$("#cpy"); ta.focus(); ta.select();
+  });
+}
+function confirmBox(title, body, okLabel, ok){
+  modal(`<h2>${esc(title)}</h2><p class="muted">${esc(body)}</p><div class="row"><button class="btn primary" id="cOk">${esc(okLabel)}</button><button class="btn ghost" id="cNo">Cancel</button></div>`,
+    {cOk:()=>{ closeLayer(); ok(); }, cNo:closeLayer});
+}
+
+
+/* ================= the wall: projects, sections, cards, board ================= */
+const SECTIONS = [
+  {key:"brief", name:"Brief & research"},
+  {key:"inspiration", name:"Inspiration"},
+  {key:"brand", name:"Brand & direction"},
+  {key:"wireframes", name:"Wireframes"},
+  {key:"designs", name:"Designs"},
+  {key:"final", name:"Final files"}
+];
+const SECTION_NAME = Object.fromEntries(SECTIONS.map(s=>[s.key,s.name]));
+const STAGE_TO_SECTION = {understand:"brief", explore:"inspiration", direction:"brand", rough:"wireframes", build:"designs", critique:"designs", polish:"designs", deliver:"final"};
+const SECTION_TAGS = {
+  brief:["client notes","research","competitors","copy"],
+  inspiration:["websites","features","layout","type","color","imagery","packaging","motion","illustration"],
+  brand:["logo","palette","type","style tile","moodboard"],
+  wireframes:["desktop","mobile","flow"],
+  designs:["desktop","mobile","mockup","in progress"],
+  final:["export","print","handoff"]
+};
+const CSTATUS = {exploring:"Exploring", starred:"Starred", shortlisted:"Shortlisted", chosen:"Chosen", parked:"Parked"};
+const STAR_LABEL = ["Not rated","Nice","Great","Must-steal"];
+
+function projById(id){ return S.projects.find(p=>p.id===id); }
+function projName(id){ const p=projById(id); return p? p.name : "No project"; }
+function cardsOf(pid){ return S.cards.filter(c=>c.projectId===pid); }
+function imgSrc(c){ if(c.blob){ return S.localBlobs[c.blob] || "/_blob/"+c.blob; } return c.thumb||""; }
+function domainOf(u){ try{ return new URL(u).hostname.replace(/^www\./,""); }catch(e){ return u||""; } }
+function putCard(c, noRender){ c.updatedAt=Date.now(); const i=S.cards.findIndex(x=>x.id===c.id); if(i>=0) S.cards[i]=c; else S.cards.unshift(c); const {id,...body}=c; save("cards/"+id, JSON.parse(JSON.stringify(body))); if(!noRender) render(); }
+function putProject(p){ const i=S.projects.findIndex(x=>x.id===p.id); if(i>=0) S.projects[i]=p; else S.projects.unshift(p); const {id,...body}=p; save("projects/"+id, JSON.parse(JSON.stringify(body))); }
+function newProject(name){ const p={id:uid(), name:name.trim().slice(0,80), createdAt:Date.now(), by:S.me}; putProject(p); return p; }
+
+/* ---------- image handling: preview on the card, full file in storage ---------- */
+async function drawTo(file, max){
+  const bmp = await createImageBitmap(file);
+  const sc = Math.min(1, max/Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width=Math.max(1,Math.round(bmp.width*sc)); c.height=Math.max(1,Math.round(bmp.height*sc));
+  const ctx=c.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,c.width,c.height); ctx.drawImage(bmp,0,0,c.width,c.height);
+  return {canvas:c, w:bmp.width, h:bmp.height};
+}
+function toBlob(canvas, type, q){ return new Promise(r=>canvas.toBlob(r, type, q)); }
+async function makeThumb(file){
+  try{ const {canvas,w,h}=await drawTo(file, 520); let q=.74, d=canvas.toDataURL("image/jpeg",q); while(d.length>110000 && q>.35){ q-=.12; d=canvas.toDataURL("image/jpeg",q); } return {thumb:d,w,h}; }
+  catch(e){ return {thumb:"",w:0,h:0}; }
+}
+async function storeFile(file){
+  if(!S.assets){ if(S.local){ const id="local"+uid(); S.localBlobs[id]=URL.createObjectURL(file); return {id}; } return {id:null, reason:"no-access"}; }
+  const tryUp = f => S.assets.upload(f).then(r=>({id:r.id, url:r.url}));
+  try{ return await tryUp(file); }
+  catch(e){
+    if(e && (e.code==="rate_limited"||e.code==="quota_or_state"||e.code==="upstream_auth")) return {id:null, reason:e.code};
+    if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) return {id:null, reason:e&&e.code};
+    try{ /* the upload scan refused it, or it's too big: send a clean, browser-redrawn copy */
+      const {canvas,w,h}=await drawTo(file, e&&e.code==="too_large"?3200:4096);
+      const big = w*h>6e6; const blob = await toBlob(canvas, big?"image/jpeg":"image/png", .9);
+      const r = await tryUp(blob); return {...r, clean:true};
+    }catch(e2){ return {id:null, reason:(e2&&e2.code)||"refused"}; }
+  }
+}
+async function cardFromFile(file, meta){
+  const isImg = /^image\//.test(file.type);
+  const {thumb,w,h} = isImg? await makeThumb(file) : {thumb:"",w:0,h:0};
+  const st = await storeFile(file);
+  const c = {id:uid(), projectId:meta.projectId||null, jobId:meta.jobId||null, section:meta.section||"inspiration", tags:meta.tags||[],
+    kind:isImg?"image":"file", title:meta.title||file.name.replace(/\.[a-z0-9]+$/i,"").slice(0,120), note:meta.note||"", url:meta.url||"",
+    blob:st.id||null, cleanCopy:!!st.clean, thumb, w, h, fileType:file.type, status:"exploring", heart:false, stars:0, notes:[], stage:meta.stage||null, createdAt:Date.now(), by:S.me};
+  if(!st.id && !thumb){ toast(st.reason==="no-access"?"You can't upload to this Lab. Ask Nathan for edit access.":"That file couldn't be stored. Try a PNG or JPG."); return null; }
+  if(!st.id && st.reason!=="no-access") c.note = (c.note?c.note+"\n":"")+"(Only a preview was kept; the full file couldn't be stored.)";
+  putCard(c, true);
+  return c;
+}
+
+/* ---------- views ---------- */
+function projectsView(){
+  const loose = S.jobs.filter(j=>!j.projectId && j.status!=="done");
+  return `<div class="stack" style="gap:22px">
+    <div class="stack" style="gap:8px"><span class="eyebrow">Clients and their work</span><h1>Projects</h1>
+    <p class="muted" style="max-width:65ch">A project holds its tasks and one wall for everything you save along the way, from the brief to final files.</p></div>
+    <form id="newProjForm" class="task-input"><input type="text" id="newProjName" placeholder="New project, e.g. Mystery Vending" autocomplete="off" aria-label="Project name"><button class="btn primary" type="submit">Add project</button></form>
+    ${S.projects.length?`<div class="jobs">${S.projects.map(p=>{ const cs=cardsOf(p.id), js=S.jobs.filter(j=>j.projectId===p.id); const cover=cs.find(c=>c.thumb);
+      return `<a class="card job" href="#project-${p.id}" style="padding:0;overflow:hidden">
+        <div class="cover" style="${cover?`background-image:url('${cover.thumb}')`:""}">${cover?"":`<span>${esc(p.name.slice(0,1).toUpperCase())}</span>`}</div>
+        <div class="stack" style="gap:6px;padding:14px 16px 16px"><h3>${esc(p.name)}</h3><span class="muted" style="font-size:13px">${js.length} task${js.length===1?"":"s"} · ${cs.length} saved</span></div></a>`; }).join("")}</div>`
+      :`<div class="empty">No projects yet. Add your first client above.</div>`}
+    ${loose.length?`<div class="card stack"><h3>Tasks without a project</h3>${loose.map(j=>`<div class="row"><a href="#job-${j.id}" style="flex:1">${esc(j.title)}</a>
+      <select data-assign="${j.id}" aria-label="Move to project"><option value="">Move to project…</option>${S.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></div>`).join("")}</div>`:""}
+  </div>`;
+}
+
+function wallView(pid){
+  const p = projById(pid);
+  if(!p) return S.loaded.jobs?`<div class="empty">That project isn't here. <a href="#projects">All projects</a></div>`:`${(S.waiting=true,"")}<div class="empty"><span class="spin"></span> Loading…</div>`;
+  const all = cardsOf(pid);
+  const sec = S.wallSection[pid]||"all";
+  let cards = all.filter(c=>sec==="all"||c.section===sec);
+  const tagSet = [...new Set(cards.flatMap(c=>c.tags||[]))];
+  const tag = S.wallTag[pid]; if(tag) cards = cards.filter(c=>(c.tags||[]).includes(tag));
+  const parkedN = cards.filter(c=>c.status==="parked").length;
+  if(!S.showParked) cards = cards.filter(c=>c.status!=="parked");
+  const order = {chosen:0, shortlisted:1, starred:2, exploring:3, parked:4};
+  cards.sort((a,b)=>(order[a.status]-order[b.status]) || (b.createdAt-a.createdAt));
+  const tasks = S.jobs.filter(j=>j.projectId===pid);
+  return `<div class="stack" style="gap:20px">
+    <a href="#projects" class="btn ghost small" style="align-self:flex-start">← Projects</a>
+    <div class="row" style="align-items:flex-end"><div class="stack" style="gap:6px;flex:1 1 320px"><span class="eyebrow">Project wall</span><h1>${esc(p.name)}</h1></div>
+      <div class="actions"><button class="btn" data-act="renameProj">Rename</button><button class="btn primary big" data-act="addCard">+ Add to wall</button></div></div>
+    <div class="row" style="gap:10px">${tasks.map(j=>`<a class="chip" href="#job-${j.id}" style="text-decoration:none;padding:6px 12px;font-size:13px">${esc(j.title)}${j.status==="done"?" ✓":""}</a>`).join("")}
+      <button class="btn small" data-act="taskHere">+ Plan a task here</button></div>
+    <div class="tabs" role="tablist">
+      <button class="tab ${sec==="all"?"on":""}" data-sec="all">All <b>${all.length}</b></button>
+      ${SECTIONS.map(s=>{ const n=all.filter(c=>c.section===s.key).length; return `<button class="tab ${sec===s.key?"on":""}" data-sec="${s.key}">${s.name} <b>${n}</b></button>`; }).join("")}
+    </div>
+    ${tagSet.length?`<div class="row" style="gap:6px"><span class="muted" style="font-size:13px">Filter:</span>${tagSet.map(t=>`<button class="tagchip ${tag===t?"on":""}" data-tagf="${esc(t)}">${esc(t)}</button>`).join("")}${tag?`<button class="btn small ghost" data-tagf="">Clear</button>`:""}</div>`:""}
+    <div class="row" style="gap:10px"><span class="muted" style="font-size:13px">${cards.length} showing${parkedN&&!S.showParked?` · ${parkedN} parked hidden`:""}</span>${parkedN?`<button class="btn small ghost" data-act="toggleParked">${S.showParked?"Hide":"Show"} parked</button>`:""}<span class="spacer"></span>
+      ${S.compare.length?`<a class="btn small primary" href="#compare">Compare ${S.compare.length}</a><button class="btn small ghost" data-act="clearCompare">Clear</button>`:`<span class="muted" style="font-size:13px">Tick up to 4 cards to compare</span>`}</div>
+    ${cards.length?`<div class="masonry">${cards.map(c=>cardTile(c,false)).join("")}</div>`
+      :`<div class="empty dropzone" data-act="addCard">${all.length?"Nothing here with these filters.":"Drop, paste or add screenshots, links and files. Everything for "+esc(p.name)+" lives here."}</div>`}
+  </div>`;
+}
+function cardTile(c, showProj){
+  const sel = S.compare.includes(c.id);
+  let face;
+  if(c.kind==="image" && (c.thumb||c.blob)) face = `<img src="${esc(c.thumb||imgSrc(c))}" alt="${esc(c.title)}" loading="lazy">`;
+  else if(c.kind==="link") face = `<div class="linkface">${c.thumb?`<img src="${esc(c.thumb)}" alt="">`:""}<div class="ld"><span class="muted" style="font-size:12px">${esc(domainOf(c.url))}</span><b>${esc(c.title||c.url)}</b></div></div>`;
+  else if(c.kind==="note") face = `<div class="noteface">${esc(c.note).slice(0,280)}</div>`;
+  else face = `<div class="noteface"><b>${esc(c.title)}</b><br><span class="muted">${esc((c.fileType||"file").split("/").pop().toUpperCase())}</span></div>`;
+  return `<div class="tile ${c.status} ${sel?"sel":""}">
+    <a href="#card-${c.id}" class="tface">${face}</a>
+    <div class="tmeta">
+      <div class="row" style="gap:6px">${c.status!=="exploring"?`<span class="st ${c.status}">${CSTATUS[c.status]}</span>`:""}${showProj?`<span class="chip">${esc(projName(c.projectId))}</span>`:`<span class="muted" style="font-size:12px">${SECTION_NAME[c.section]||""}</span>`}<span class="spacer"></span>
+        <button class="heart ${c.heart?"on":""}" data-heart="${c.id}" aria-label="Favorite" aria-pressed="${!!c.heart}">♥</button></div>
+      ${c.kind!=="note"?`<div class="ttitle">${esc(c.title)}</div>`:""}
+      <div class="row" style="gap:4px">${[1,2,3].map(n=>`<button class="star ${c.stars>=n?"on":""}" data-star="${c.id}" data-n="${n}" aria-label="${STAR_LABEL[n]}" title="${STAR_LABEL[n]}">★</button>`).join("")}
+        <span class="spacer"></span><label class="cmp" title="Compare"><input type="checkbox" data-cmp="${c.id}" ${sel?"checked":""}> Compare</label></div>
+      ${(c.tags||[]).length?`<div class="row" style="gap:4px">${c.tags.slice(0,4).map(t=>`<span class="tagchip sm">${esc(t)}</span>`).join("")}</div>`:""}
+    </div></div>`;
+}
+
+function cardView(id){
+  const c = S.cards.find(x=>x.id===id);
+  if(!c) return S.loaded.jobs?`<div class="empty">That card isn't here. <a href="#projects">Projects</a></div>`:`${(S.waiting=true,"")}<div class="empty"><span class="spin"></span> Loading…</div>`;
+  const back = /^(project-|board|compare|focus-|job-)/.test(S.lastHash||"") ? S.lastHash : (c.projectId?"project-"+c.projectId:"board");
+  const sugg = [...new Set([...(SECTION_TAGS[c.section]||[]), ...S.cards.flatMap(x=>x.tags||[])])].filter(t=>!(c.tags||[]).includes(t)).slice(0,14);
+  const job = c.jobId? getJob(c.jobId): null;
+  return `<div class="stack" style="gap:18px">
+    <a href="#${back}" class="btn ghost small" style="align-self:flex-start">← Back</a>
+    <div class="cardgrid">
+      <div class="stack">
+        ${c.kind==="image"?`<div class="bigimg"><img src="${esc(imgSrc(c))}" alt="${esc(c.title)}" onerror="this.src='${esc(c.thumb||"")}'"></div>`:""}
+        ${c.kind==="link"?`<div class="card stack">${c.thumb?`<img src="${esc(c.thumb)}" alt="" style="width:100%;border-radius:10px">`:""}<a href="${esc(c.url)}" target="_blank" rel="noopener" class="btn">Open ${esc(domainOf(c.url))} ↗</a></div>`:""}
+        ${c.kind==="file"&&c.blob?`<a class="btn" href="${esc(imgSrc(c))}" target="_blank" rel="noopener">Open file ↗</a>`:""}
+        ${c.cleanCopy?`<p class="muted" style="font-size:13px">Stored as a clean copy: the original was refused by the upload check.</p>`:""}
+      </div>
+      <div class="stack" style="gap:16px">
+        <div><label for="c-title">Title</label><input type="text" id="c-title" value="${esc(c.title)}"></div>
+        <div class="row" style="gap:6px">${Object.keys(CSTATUS).map(k=>`<button class="btn small ${c.status===k?"primary":""}" data-cst="${k}">${CSTATUS[k]}</button>`).join("")}</div>
+        <div class="row" style="gap:10px"><button class="heart big ${c.heart?"on":""}" data-heart="${c.id}" aria-pressed="${!!c.heart}">♥ ${c.heart?"Favorite":"Favorite?"}</button>
+          <span class="row" style="gap:2px">${[1,2,3].map(n=>`<button class="star big ${c.stars>=n?"on":""}" data-star="${c.id}" data-n="${n}" title="${STAR_LABEL[n]}">★</button>`).join("")}</span><span class="muted">${STAR_LABEL[c.stars||0]}</span></div>
+        <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label for="c-proj">Project</label><select id="c-proj">${S.projects.map(p=>`<option value="${p.id}" ${p.id===c.projectId?"selected":""}>${esc(p.name)}</option>`).join("")}</select></div>
+          <div><label for="c-sec">Section</label><select id="c-sec">${SECTIONS.map(s=>`<option value="${s.key}" ${s.key===c.section?"selected":""}>${s.name}</option>`).join("")}</select></div>
+        </div>
+        <div><span style="font-weight:700;font-size:14px;display:block;margin-bottom:6px">Tags</span>
+          <div class="row" style="gap:6px">${(c.tags||[]).map(t=>`<button class="tagchip on" data-untag="${esc(t)}" title="Remove">${esc(t)} ×</button>`).join("")}
+          ${sugg.map(t=>`<button class="tagchip" data-addtag="${esc(t)}">+ ${esc(t)}</button>`).join("")}</div>
+          <form id="tagForm" class="row" style="gap:8px;margin-top:8px"><input type="text" id="newTag" placeholder="New tag" style="max-width:220px" aria-label="New tag"><button class="btn small" type="submit">Add tag</button></form></div>
+        ${c.kind==="link"?`<div><label for="c-url">Link</label><input type="text" id="c-url" value="${esc(c.url)}"></div>`:""}
+        <div><label for="c-note">Why you saved it</label><textarea id="c-note" placeholder="e.g. love the sticky nav and the oversized type">${esc(c.note)}</textarea></div>
+        <div class="row"><button class="btn primary" data-act="saveCard">Save changes</button><span class="spacer"></span><button class="btn ghost small" data-act="trashCard">Remove card</button></div>
+        <div class="stack" style="gap:8px"><span class="eyebrow">Notes</span>
+          ${(c.notes||[]).map(n=>`<div class="note-item">${esc(n.text)}<span class="muted" style="font-size:12px"> · ${new Date(n.at).toLocaleDateString()}</span></div>`).join("")||`<p class="muted" style="font-size:14px">No notes yet.</p>`}
+          <form id="noteForm" class="task-input"><input type="text" id="noteText" placeholder="Add a note" aria-label="Note"><button class="btn small" type="submit">Add</button></form></div>
+        <p class="muted" style="font-size:13px">Saved ${new Date(c.createdAt).toLocaleDateString()}${job?` during “<a href="#job-${job.id}">${esc(job.title)}</a>”`:""}${c.stage?`, ${stageName(c.stage)} stage`:""}.</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+function compareView(){
+  const cs = S.compare.map(id=>S.cards.find(c=>c.id===id)).filter(Boolean);
+  if(!cs.length) return `<div class="empty">Nothing to compare. Tick “Compare” on up to 4 cards. <a href="#projects">Projects</a></div>`;
+  return `<div class="stack" style="gap:18px">
+    <div class="row"><button class="btn ghost small" data-act="backFromCompare">← Back</button><h2 style="flex:1">Compare</h2><button class="btn small" data-act="clearCompare">Clear</button></div>
+    <div class="cmpgrid" style="grid-template-columns:repeat(${Math.min(cs.length,cs.length===4?2:cs.length)},1fr)">
+      ${cs.map(c=>`<div class="card stack" style="gap:10px;padding:12px">
+        ${c.kind==="image"||c.thumb?`<img src="${esc(c.kind==="image"?imgSrc(c):c.thumb)}" alt="${esc(c.title)}" style="width:100%;border-radius:10px;max-height:60vh;object-fit:contain;background:var(--paper)">`:`<div class="noteface">${esc(c.note||c.url)}</div>`}
+        <div class="row"><b style="flex:1">${esc(c.title)}</b><span class="chip">${esc(projName(c.projectId))}</span></div>
+        <div class="row" style="gap:6px">${["starred","shortlisted","chosen","parked"].map(k=>`<button class="btn small ${c.status===k?"primary":""}" data-cst2="${c.id}" data-k="${k}">${CSTATUS[k]}</button>`).join("")}</div>
+      </div>`).join("")}
+    </div></div>`;
+}
+
+function boardView(){
+  const f = S.board;
+  let cs = S.cards.filter(c=>f.allSections || c.section==="inspiration");
+  const tagSet = [...new Set(cs.flatMap(c=>c.tags||[]))].sort();
+  if(f.tag) cs = cs.filter(c=>(c.tags||[]).includes(f.tag));
+  if(f.project) cs = cs.filter(c=>c.projectId===f.project);
+  if(f.hearts) cs = cs.filter(c=>c.heart);
+  if(f.minStars) cs = cs.filter(c=>(c.stars||0)>=f.minStars);
+  cs = cs.filter(c=>c.status!=="parked");
+  cs.sort(f.sort==="top" ? (a,b)=>((b.heart?10:0)+(b.stars||0))-((a.heart?10:0)+(a.stars||0)) || b.createdAt-a.createdAt : (a,b)=>b.createdAt-a.createdAt);
+  return `<div class="stack" style="gap:18px">
+    <div class="stack" style="gap:8px"><span class="eyebrow">Every project, one board</span><h1>Library</h1>
+    <p class="muted" style="max-width:65ch">Everything you've saved as inspiration, across all projects. Each card still lives in its own project.</p></div>
+    <div class="card row" style="gap:12px;padding:14px 16px">
+      <select id="bTag" aria-label="Tag" style="width:auto"><option value="">All tags</option>${tagSet.map(t=>`<option ${f.tag===t?"selected":""}>${esc(t)}</option>`).join("")}</select>
+      <select id="bProj" aria-label="Project" style="width:auto"><option value="">All projects</option>${S.projects.map(p=>`<option value="${p.id}" ${f.project===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}</select>
+      <select id="bStars" aria-label="Stars" style="width:auto"><option value="0">Any rating</option>${[1,2,3].map(n=>`<option value="${n}" ${f.minStars===n?"selected":""}>${STAR_LABEL[n]}${n<3?" and up":""}</option>`).join("")}</select>
+      <label style="margin:0;font-weight:700;display:flex;gap:6px;align-items:center"><input type="checkbox" id="bHearts" ${f.hearts?"checked":""}> ♥ only</label>
+      <label style="margin:0;font-weight:400;display:flex;gap:6px;align-items:center"><input type="checkbox" id="bAll" ${f.allSections?"checked":""}> All sections</label>
+      <span class="spacer"></span>
+      <select id="bSort" aria-label="Sort" style="width:auto"><option value="new" ${f.sort!=="top"?"selected":""}>Newest</option><option value="top" ${f.sort==="top"?"selected":""}>Top ranked</option></select>
+    </div>
+    <div class="row" style="gap:6px">${["websites","features","layout","type","color","imagery","packaging"].filter(t=>tagSet.includes(t)).map(t=>`<button class="tagchip ${f.tag===t?"on":""}" data-btag="${t}">${t}</button>`).join("")}</div>
+    ${cs.length?`<div class="masonry">${cs.map(c=>cardTile(c,true)).join("")}</div>`:`<div class="empty">${S.cards.length?"Nothing matches these filters.":"Nothing saved yet. Save inspiration from any project wall, or drop it in during an Explore step."}</div>`}
+  </div>`;
+}
+
+/* ---------- add to wall ---------- */
+function openAddCard(opts){
+  opts = opts||{};
+  const pid = opts.projectId || null;
+  const sec = opts.section || "inspiration";
+  let picked = new Set(opts.tags||[]);
+  const tagRow = s => (SECTION_TAGS[s]||[]).map(t=>`<button type="button" class="tagchip ${picked.has(t)?"on":""}" data-pt="${esc(t)}">${esc(t)}</button>`).join("");
+  modal(`<h2>Add to the wall</h2>
+    <form id="addForm" class="stack" style="gap:12px">
+      ${pid?"":`<div><label for="a-proj">Project</label><select id="a-proj">${S.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}<option value="__new">+ New project…</option></select>
+        <input type="text" id="a-newproj" placeholder="Project name" style="margin-top:8px;display:${S.projects.length?"none":"block"}"></div>`}
+      <div class="dropzone" id="a-drop" tabindex="0">${opts.files&&opts.files.length?`${opts.files.length} image${opts.files.length>1?"s":""} ready`:"Drop images here, paste (⌘V), or click to choose"}</div>
+      <input type="file" id="a-file" accept="image/*,application/pdf" multiple style="display:none">
+      <div><label for="a-url">Or a link <span class="hint">website, Dribbble shot, article</span></label><input type="text" id="a-url" placeholder="https://" value="${esc(opts.url||"")}"></div>
+      <div><label for="a-title">Title <span class="hint">optional</span></label><input type="text" id="a-title"></div>
+      <div><label for="a-sec">Section</label><select id="a-sec">${SECTIONS.map(s=>`<option value="${s.key}" ${s.key===sec?"selected":""}>${s.name}</option>`).join("")}</select></div>
+      <div class="row" style="gap:6px" id="a-tags">${tagRow(sec)}</div>
+      <div><label for="a-note">Why you're saving it <span class="hint">optional</span></label><input type="text" id="a-note" placeholder="e.g. great product grid"></div>
+      <div class="row"><button class="btn primary" type="submit" id="a-save">Save</button><button class="btn ghost" type="button" id="a-cancel">Cancel</button></div>
+    </form>`, {"a-cancel":closeLayer});
+  let files = opts.files ? [...opts.files] : [];
+  const drop=$("#a-drop"), fi=$("#a-file");
+  const setFiles = fs=>{ files=[...fs].filter(f=>/^image\/|application\/pdf/.test(f.type)); drop.textContent = files.length? `${files.length} file${files.length>1?"s":""} ready` : "Drop images here, paste (⌘V), or click to choose"; };
+  drop.onclick=()=>fi.click(); drop.onkeydown=e=>{ if(e.key==="Enter") fi.click(); };
+  fi.onchange=()=>setFiles(fi.files);
+  drop.ondragover=e=>{ e.preventDefault(); drop.classList.add("over"); }; drop.ondragleave=()=>drop.classList.remove("over");
+  drop.ondrop=e=>{ e.preventDefault(); drop.classList.remove("over"); setFiles(e.dataTransfer.files); };
+  S.addPaste = fs=>setFiles(fs);
+  const ap=$("#a-proj"); if(ap) ap.onchange=()=>{ $("#a-newproj").style.display = ap.value==="__new"?"block":"none"; };
+  $("#a-sec").onchange=()=>{ picked=new Set(); $("#a-tags").innerHTML=tagRow($("#a-sec").value); };
+  $("#a-tags").onclick=e=>{ const b=e.target.closest("[data-pt]"); if(!b) return; const t=b.dataset.pt; picked.has(t)?picked.delete(t):picked.add(t); b.classList.toggle("on"); };
+  $("#addForm").onsubmit=async e=>{
+    e.preventDefault();
+    let projectId = pid;
+    if(!projectId){ const v=ap?ap.value:"__new"; if(v==="__new"||!v){ const n=$("#a-newproj").value.trim(); if(!n){ $("#a-newproj").style.display="block"; $("#a-newproj").focus(); return; } projectId=newProject(n).id; } else projectId=v; }
+    const url=$("#a-url").value.trim(), title=$("#a-title").value.trim(), note=$("#a-note").value.trim(), section=$("#a-sec").value, tags=[...picked];
+    if(!files.length && !url && !note){ toast("Add an image, a link or a note."); return; }
+    const btn=$("#a-save"); btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Saving…`;
+    const meta={projectId, section, tags, note, title, jobId:opts.jobId, stage:opts.stage};
+    let saved=0;
+    if(url && !/^https?:\/\//i.test(url)){ toast("Links need to start with http:// or https://"); btn.disabled=false; btn.textContent="Save"; return; }
+    if(url){ /* a link card; the first image, if any, becomes its screenshot */
+      let thumb="", blob=null, w=0, h=0, clean=false;
+      if(files[0]){ const t=await makeThumb(files[0]); thumb=t.thumb; w=t.w; h=t.h; const st=await storeFile(files[0]); blob=st.id; clean=!!st.clean; files=files.slice(1); }
+      putCard({id:uid(), projectId, jobId:opts.jobId||null, section, tags, kind:"link", title:title||domainOf(url), note, url, blob, thumb, w, h, cleanCopy:clean, status:"exploring", heart:false, stars:0, notes:[], stage:opts.stage||null, createdAt:Date.now(), by:S.me}, true); saved++;
+    }
+    for(const f of files){ const c=await cardFromFile(f, {...meta, title: files.length===1?title:""}); if(c) saved++; }
+    if(!url && !files.length && note){ putCard({id:uid(), projectId, jobId:opts.jobId||null, section, tags, kind:"note", title:title||"Note", note, status:"exploring", heart:false, stars:0, notes:[], stage:opts.stage||null, createdAt:Date.now(), by:S.me}, true); saved++; }
+    S.addPaste=null; closeLayer();
+    if(saved){ toast(`Saved ${saved} to ${SECTION_NAME[section]} in ${projName(projectId)}.`); }
+    if(view().v==="focus"){ render(); } else if(!opts.stay) go("project-"+projectId); else render();
+  };
+}
+
+/* quick save from focus mode: files go straight to the right section */
+async function quickSave(j, files){
+  const s = curStep(j);
+  if(j.example){ toast("Press “Use this plan” first so there's a project to save into."); return; }
+  if(!j.projectId){ toast("Pick a project for this task first."); return; }
+  const section = STAGE_TO_SECTION[s&&s.stage] || "inspiration";
+  toast("Saving…");
+  let n=0; for(const f of files){ const c=await cardFromFile(f, {projectId:j.projectId, jobId:j.id, section, stage:s&&s.stage}); if(c) n++; }
+  if(n){ toast(`Saved ${n} to ${SECTION_NAME[section]}. Tag it later on the wall.`); render(); }
+}
+function saveToWallBlock(j, s){
+  if(j.example) return `<div class="savewall muted">Saving to a wall works once you press “Use this plan”.</div>`;
+  const section = STAGE_TO_SECTION[s.stage] || "inspiration";
+  if(!j.projectId) return `<div class="savewall"><span>Save what you find to a project wall:</span>
+    <select id="assignProj" aria-label="Project"><option value="">Choose a project…</option>${S.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}<option value="__new">+ New project…</option></select></div>`;
+  const n = S.cards.filter(c=>c.jobId===j.id && c.stage===s.stage).length;
+  return `<div class="savewall dropzone" id="qsDrop" tabindex="0">
+    <b>Drop, paste or click</b> to save to <b>${SECTION_NAME[section]}</b> in ${esc(projName(j.projectId))}${n?` · ${n} saved in this stage`:""}
+    <button class="btn small" type="button" data-act="addLink">Save a link</button>
+    <a class="btn small ghost" href="#project-${j.projectId}">Open wall</a>
+    <input type="file" id="qsFile" accept="image/*,application/pdf" multiple style="display:none"></div>`;
+}
+
+/* ---------- wiring for wall views ---------- */
+function wireWall(r){
+  const app=$("#app");
+  const np=$("#newProjForm"); if(np) np.onsubmit=e=>{ e.preventDefault(); const v=$("#newProjName").value.trim(); if(!v) return; const p=newProject(v); go("project-"+p.id); };
+  document.querySelectorAll("[data-assign]").forEach(sel=>sel.onchange=()=>{ const j=getJob(sel.dataset.assign); if(!j||!sel.value) return;
+    if(sel.value==="__new"){ modal(`<h2>New project</h2><form id="npf2" class="stack" style="gap:12px"><input type="text" id="npn2" placeholder="e.g. Mystery Vending" aria-label="Project name"><div class="row"><button class="btn primary" type="submit">Create</button><button class="btn ghost" type="button" id="npc2">Cancel</button></div></form>`,{npc2:()=>{closeLayer(); render();}}); $("#npn2").focus(); $("#npf2").onsubmit=e=>{ e.preventDefault(); const v=$("#npn2").value.trim(); if(!v) return; j.projectId=newProject(v).id; closeLayer(); putJob(j); toast("Moved to "+v+"."); }; return; }
+    j.projectId=sel.value; putJob(j); toast("Moved to "+projName(sel.value)+"."); });
+  /* delegated click/change handlers are registered once, below */
+}
+function wallClick(e){
+    const r=view(); if(!["project","card","board","compare"].includes(r.v)) return;
+    const t=e.target;
+    if(r.v==="card" && t.closest("[data-heart],[data-star],[data-cst],[data-addtag],[data-untag]")){ /* keep unsaved typing */
+      const c=S.cards.find(x=>x.id===r.id); if(c){ const g=id=>document.getElementById(id); if(g("c-title")) c.title=g("c-title").value.trim()||c.title; if(g("c-note")) c.note=g("c-note").value; if(g("c-url")) c.url=g("c-url").value.trim(); if(g("c-sec")) c.section=g("c-sec").value; } }
+    const sec=t.closest("[data-sec]"); if(sec){ S.wallSection[r.id]=sec.dataset.sec; S.wallTag[r.id]=null; render(); return; }
+    const tf=t.closest("[data-tagf]"); if(tf){ S.wallTag[r.id]=tf.dataset.tagf||null; render(); return; }
+    const bt=t.closest("[data-btag]"); if(bt){ S.board.tag = S.board.tag===bt.dataset.btag? "" : bt.dataset.btag; render(); return; }
+    const h=t.closest("[data-heart]"); if(h){ const c=S.cards.find(x=>x.id===h.dataset.heart); c.heart=!c.heart; putCard(c); return; }
+    const st=t.closest("[data-star]"); if(st){ const c=S.cards.find(x=>x.id===st.dataset.star); const n=+st.dataset.n; c.stars = c.stars===n? n-1 : n; putCard(c); return; }
+    const cs=t.closest("[data-cst]"); if(cs){ const c=S.cards.find(x=>x.id===r.id); c.status=cs.dataset.cst; putCard(c); return; }
+    const cs2=t.closest("[data-cst2]"); if(cs2){ const c=S.cards.find(x=>x.id===cs2.dataset.cst2); c.status = c.status===cs2.dataset.k? "exploring" : cs2.dataset.k; putCard(c); return; }
+    const at=t.closest("[data-addtag]"); if(at){ const c=S.cards.find(x=>x.id===r.id); c.tags=[...new Set([...(c.tags||[]), at.dataset.addtag])]; putCard(c); return; }
+    const ut=t.closest("[data-untag]"); if(ut){ const c=S.cards.find(x=>x.id===r.id); c.tags=(c.tags||[]).filter(x=>x!==ut.dataset.untag); putCard(c); return; }
+}
+function wallChange(e){
+    const cb=e.target.closest("[data-cmp]"); if(cb){ const id=cb.dataset.cmp; if(cb.checked){ if(S.compare.length>=4){ cb.checked=false; toast("Compare holds 4 at a time."); return; } S.compare.push(id); } else S.compare=S.compare.filter(x=>x!==id); S.compareBack=location.hash.slice(1); render(); }
+}
+$("#app").addEventListener("click", wallClick);
+$("#app").addEventListener("change", wallChange);
+function wireWall2(r){
+  const tg=$("#tagForm"); if(tg) tg.onsubmit=e=>{ e.preventDefault(); const v=$("#newTag").value.trim().toLowerCase().slice(0,30); if(!v) return; const c=S.cards.find(x=>x.id===r.id); c.tags=[...new Set([...(c.tags||[]),v])]; putCard(c); };
+  const nf=$("#noteForm"); if(nf) nf.onsubmit=e=>{ e.preventDefault(); const v=$("#noteText").value.trim(); if(!v) return; const c=S.cards.find(x=>x.id===r.id); c.notes=[...(c.notes||[]),{text:v, by:S.me, at:Date.now()}]; putCard(c); };
+  const bind=(id,fn)=>{ const el=$(id); if(el) el.onchange=fn; };
+  bind("#bTag",e=>{ S.board.tag=e.target.value; render(); }); bind("#bProj",e=>{ S.board.project=e.target.value; render(); });
+  bind("#bStars",e=>{ S.board.minStars=+e.target.value; render(); }); bind("#bHearts",e=>{ S.board.hearts=e.target.checked; render(); });
+  bind("#bAll",e=>{ S.board.allSections=e.target.checked; render(); }); bind("#bSort",e=>{ S.board.sort=e.target.value; render(); });
+  /* focus-mode quick save */
+  const qd=$("#qsDrop"), qf=$("#qsFile");
+  if(qd && r.v==="focus"){ const j=getJob(r.id);
+    qd.onclick=e=>{ if(e.target.closest("button,a")) return; qf.click(); }; qd.onkeydown=e=>{ if(e.key==="Enter") qf.click(); };
+    qf.onchange=()=>quickSave(j,[...qf.files]);
+    qd.ondragover=e=>{ e.preventDefault(); qd.classList.add("over"); }; qd.ondragleave=()=>qd.classList.remove("over");
+    qd.ondrop=e=>{ e.preventDefault(); qd.classList.remove("over"); quickSave(j,[...e.dataTransfer.files]); }; }
+  const as=$("#assignProj"); if(as) as.onchange=()=>{ const j=getJob(r.id); if(as.value==="__new"){ modal(`<h2>New project</h2><form id="npf" class="stack" style="gap:12px"><input type="text" id="npn" placeholder="e.g. Mystery Vending" aria-label="Project name"><div class="row"><button class="btn primary" type="submit">Create</button><button class="btn ghost" type="button" id="npc">Cancel</button></div></form>`,{npc:()=>{closeLayer(); render();}}); $("#npn").focus(); $("#npf").onsubmit=e=>{ e.preventDefault(); const v=$("#npn").value.trim(); if(!v) return; j.projectId=newProject(v).id; closeLayer(); putJob(j); }; return; }
+    if(as.value){ j.projectId=as.value; putJob(j); } };
+  const jp=$("#jobProj"); if(jp) jp.onchange=()=>{ const j=getJob(r.id); if(jp.value==="__new"){ const n=$("#jobProjNew"); n.style.display="block"; n.focus(); n.onchange=()=>{ if(n.value.trim()){ j.projectId=newProject(n.value).id; putJob(j); } }; return; } j.projectId=jp.value||null; putJob(j); };
+}
+
+/* paste screenshots straight in */
+document.addEventListener("paste", e=>{
+  const files=[...(e.clipboardData&&e.clipboardData.files||[])].filter(f=>/^image\//.test(f.type));
+  const r=view();
+  if(S.addPaste && files.length){ e.preventDefault(); S.addPaste(files); return; }
+  const tag=(e.target.tagName||"").toLowerCase(); if(["input","textarea"].includes(tag)) return;
+  if(!files.length){ const txt=(e.clipboardData.getData("text")||"").trim(); if(/^https?:\/\/\S+$/.test(txt) && (r.v==="project"||r.v==="board")){ e.preventDefault(); openAddCard({projectId:r.v==="project"?r.id:null, url:txt}); } return; }
+  e.preventDefault();
+  if(r.v==="focus"){ const j=getJob(r.id); if(j && j.projectId && !j.example) drawerSave(j, files); else toast("Put this plan in a project first."); return; }
+  if(r.v==="project"||r.v==="board"||r.v==="projects"){ const tab=r.v==="project"?S.projTab[r.id]:null; openAddCard({projectId:r.v==="project"?r.id:null, files, stay:true, section: tab==="kit"?"brand":tab==="work"?(S.wallSection[r.id]&&S.wallSection[r.id]!=="all"?S.wallSection[r.id]:"designs"):"inspiration"}); }
+});
+
+/* ================= project page, focus drawer and the kit ================= */
+const KIT_FIELDS_EMPTY = ()=>({status:"draft", palette:[], type:{display:"", body:"", notes:""}, mood:[], imageStyle:"", voice:"", dos:"", donts:"", references:[], updatedAt:0});
+function kitOf(pid){ return S.kits[pid] || null; }
+function kitReady(k){ return k && (k.palette.length || k.mood.length || k.imageStyle || k.voice || (k.type&&k.type.display)); }
+function putKit(pid, k){ k.updatedAt=Date.now(); S.kits[pid]=k; save("kits/"+pid, JSON.parse(JSON.stringify(k))); }
+function brandCards(pid){ return S.cards.filter(c=>c.projectId===pid && c.section==="brand"); }
+const STUDIO = "Studio (personal & one-off)";
+
+/* ---------- kit as text for each tool ---------- */
+function kitText(pid, toolName){
+  const k = kitOf(pid); if(!kitReady(k)) return "";
+  const p = projName(pid);
+  const pal = k.palette.map(c=>`${c.hex}${c.name?" "+c.name:""}${c.role?" ("+c.role+")":""}`).join(", ");
+  const refs = (k.references||[]).map(r=>{ const c=S.cards.find(x=>x.id===r.cardId); return c? `- ${c.title}${c.url?" ("+c.url+")":""}: take ${r.take||"the overall feel"}` : null; }).filter(Boolean);
+  const isImage = /gemini|image|midjourney|firefly/i.test(toolName||"");
+  if(isImage){
+    const dot=t=>t&&!/[.!?]$/.test(t.trim())?t.trim()+".":t;
+    return [`Visual style for ${p}:`, dot(k.imageStyle), k.mood.length?`Mood: ${k.mood.join(", ")}.`:"", pal?`Colour palette: ${pal}.`:"", k.donts?`Avoid: ${k.donts.split("\n").filter(Boolean).join("; ")}.`:"", "Original work only; do not copy any existing brand or design."].filter(Boolean).join(" ");
+  }
+  return [`PROJECT KIT: ${p}`,
+    pal&&`Palette: ${pal}`,
+    (k.type.display||k.type.body)&&`Type: ${[k.type.display&&"display "+k.type.display, k.type.body&&"body "+k.type.body].filter(Boolean).join(", ")}${k.type.notes?". "+k.type.notes:""}`,
+    k.mood.length&&`Mood: ${k.mood.join(", ")}`,
+    k.imageStyle&&`Image style: ${k.imageStyle}`,
+    k.voice&&`Voice and tone: ${k.voice}`,
+    k.dos&&`Do: ${k.dos.split("\n").filter(Boolean).join("; ")}`,
+    k.donts&&`Don't: ${k.donts.split("\n").filter(Boolean).join("; ")}`,
+    refs.length&&`References (take the quality named, never copy):\n${refs.join("\n")}`
+  ].filter(Boolean).join("\n");
+}
+function promptWithKit(j, s){
+  if(!j.projectId || s.tag==="you") return s.prompt;
+  const k=kitOf(j.projectId); if(!k || k.status!=="locked") return s.prompt;
+  const kt=kitText(j.projectId, s.tool); return kt? s.prompt+"\n\n"+kt : s.prompt;
+}
+
+/* ---------- colours from images (no AI needed) ---------- */
+function loadImg(src){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; }); }
+async function pullColors(cards){
+  const buckets={};
+  for(const c of cards.slice(0,12)){ if(!c.thumb) continue;
+    try{ const im=await loadImg(c.thumb); const cv=document.createElement("canvas"); cv.width=48; cv.height=48; const x=cv.getContext("2d"); x.drawImage(im,0,0,48,48);
+      const d=x.getImageData(0,0,48,48).data;
+      for(let i=0;i<d.length;i+=4){ const r=d[i]>>4, g=d[i+1]>>4, b=d[i+2]>>4; const key=(r<<8)|(g<<4)|b; const bk=buckets[key]=buckets[key]||{n:0,r:0,g:0,b:0}; bk.n++; bk.r+=d[i]; bk.g+=d[i+1]; bk.b+=d[i+2]; }
+    }catch(e){} }
+  const list=Object.values(buckets).map(b=>({n:b.n, r:b.r/b.n, g:b.g/b.n, b:b.b/b.n})).sort((a,b)=>b.n-a.n);
+  const out=[]; for(const c of list){ if(out.every(o=>Math.hypot(o.r-c.r,o.g-c.g,o.b-c.b)>60)) out.push(c); if(out.length>=6) break; }
+  return out.map(c=>"#"+[c.r,c.g,c.b].map(v=>Math.round(v).toString(16).padStart(2,"0")).join("").toUpperCase());
+}
+
+/* ---------- project page ---------- */
+function projectView(pid){
+  const p = projById(pid);
+  if(!p) return S.loaded.jobs?`<div class="empty">That project isn't here. <a href="#projects">All projects</a></div>`:`${(S.waiting=true,"")}<div class="empty"><span class="spin"></span> Loading…</div>`;
+  const tab = S.projTab[pid] || "plans";
+  const k = kitOf(pid);
+  const counts = {plans:S.jobs.filter(j=>j.projectId===pid).length, inspiration:cardsOf(pid).filter(c=>c.section==="inspiration").length,
+    work:cardsOf(pid).filter(c=>["brief","wireframes","designs","final"].includes(c.section)).length};
+  const body = tab==="plans"? plansTab(pid) : tab==="kit"? kitTab(pid) : tab==="work"? cardsTab(pid,"work") : cardsTab(pid,"inspiration");
+  return `<div class="stack" style="gap:20px">
+    <a href="#projects" class="btn ghost small" style="align-self:flex-start">← Projects</a>
+    <div class="row" style="align-items:flex-end"><div class="stack" style="gap:6px;flex:1 1 320px"><span class="eyebrow">Project</span><h1>${esc(p.name)}</h1></div>
+      <div class="actions"><button class="btn small ghost" data-act="renameProj">Rename</button></div></div>
+    <div class="tabs" role="tablist">
+      <button class="tab ${tab==="plans"?"on":""}" data-ptab="plans">Plans <b>${counts.plans}</b></button>
+      <button class="tab ${tab==="inspiration"?"on":""}" data-ptab="inspiration">Inspiration <b>${counts.inspiration}</b></button>
+      <button class="tab ${tab==="kit"?"on":""}" data-ptab="kit">Kit ${k&&k.status==="locked"?`<b style="background:var(--good);color:#fff">locked</b>`:kitReady(k)?"<b>draft</b>":""}</button>
+      <button class="tab ${tab==="work"?"on":""}" data-ptab="work">Work files <b>${counts.work}</b></button>
+    </div>
+    ${body}
+  </div>`;
+}
+function plansTab(pid){
+  const js = S.jobs.filter(j=>j.projectId===pid);
+  return `<div class="stack">
+    <div class="row"><span class="muted" style="font-size:14px">Every plan in this project shares its inspiration and kit.</span><span class="spacer"></span><button class="btn primary" data-act="taskHere">+ Plan something</button></div>
+    ${js.length?`<div class="jobs">${js.map(jobCard).join("")}</div>`:`<div class="empty">No plans yet. Plan the first piece of work for ${esc(projName(pid))}.</div>`}
+  </div>`;
+}
+function cardsTab(pid, which){
+  const all = cardsOf(pid).filter(c=> which==="inspiration" ? c.section==="inspiration" : ["brief","wireframes","designs","final"].includes(c.section));
+  const subs = which==="work" ? SECTIONS.filter(s=>["brief","wireframes","designs","final"].includes(s.key)) : [];
+  const sub = which==="work" ? (S.wallSection[pid]&&subs.some(s=>s.key===S.wallSection[pid])?S.wallSection[pid]:"all") : "inspiration";
+  let cards = which==="work" && sub!=="all" ? all.filter(c=>c.section===sub) : all;
+  const tagSet = [...new Set(cards.flatMap(c=>c.tags||[]))];
+  const tag = S.wallTag[pid]; if(tag) cards = cards.filter(c=>(c.tags||[]).includes(tag));
+  const parkedN = cards.filter(c=>c.status==="parked").length;
+  if(!S.showParked) cards = cards.filter(c=>c.status!=="parked");
+  const order = {chosen:0, shortlisted:1, starred:2, exploring:3, parked:4};
+  cards.sort((a,b)=>(order[a.status]-order[b.status]) || (b.heart?1:0)-(a.heart?1:0) || (b.stars||0)-(a.stars||0) || (b.createdAt-a.createdAt));
+  return `<div class="stack" style="gap:14px">
+    <div class="row"><span class="muted" style="font-size:14px">${which==="inspiration"?"Everything you've saved for this project. Heart and star the best; they feed the kit.":"Wireframes, designs and finals from every plan in this project."}</span><span class="spacer"></span>
+      <button class="btn primary" data-act="addCard" data-addsec="${which==="inspiration"?"inspiration":(sub!=="all"?sub:"designs")}">+ Add</button></div>
+    ${subs.length?`<div class="row" style="gap:6px"><button class="tagchip ${sub==="all"?"on":""}" data-wsub="all">All</button>${subs.map(s=>`<button class="tagchip ${sub===s.key?"on":""}" data-wsub="${s.key}">${s.name} ${all.filter(c=>c.section===s.key).length}</button>`).join("")}</div>`:""}
+    ${tagSet.length?`<div class="row" style="gap:6px"><span class="muted" style="font-size:13px">Filter:</span>${tagSet.map(t=>`<button class="tagchip ${tag===t?"on":""}" data-tagf="${esc(t)}">${esc(t)}</button>`).join("")}${tag?`<button class="btn small ghost" data-tagf="">Clear</button>`:""}</div>`:""}
+    <div class="row" style="gap:10px"><span class="muted" style="font-size:13px">${cards.length} showing${parkedN&&!S.showParked?` · ${parkedN} parked hidden`:""}</span>${parkedN?`<button class="btn small ghost" data-act="toggleParked">${S.showParked?"Hide":"Show"} parked</button>`:""}<span class="spacer"></span>
+      ${S.compare.length?`<a class="btn small primary" href="#compare">Compare ${S.compare.length}</a><button class="btn small ghost" data-act="clearCompare">Clear</button>`:""}</div>
+    ${cards.length?`<div class="masonry">${cards.map(c=>cardTile(c,false)).join("")}</div>`
+      :`<div class="empty dropzone" data-act="addCard" data-addsec="${which==="inspiration"?"inspiration":"designs"}">${all.length?"Nothing here with these filters.":"Drop, paste or add screenshots, links and files."}</div>`}
+  </div>`;
+}
+
+/* ---------- kit editor ---------- */
+function kitTab(pid){
+  const k = kitOf(pid) || KIT_FIELDS_EMPTY();
+  const locked = k.status==="locked";
+  const insp = cardsOf(pid).filter(c=>c.section==="inspiration" && c.status!=="parked").sort((a,b)=>((b.heart?10:0)+(b.stars||0))-((a.heart?10:0)+(a.stars||0)));
+  const refIds = (k.references||[]).map(r=>r.cardId);
+  const dis = locked?"disabled":"";
+  return `<div class="stack" style="gap:18px">
+    <div class="card row" style="gap:12px">
+      <div class="stack" style="gap:4px;flex:1 1 300px"><h3>${locked?"Kit locked":"The kit is this project's design system"}</h3>
+        <p class="muted" style="font-size:14px">${locked?"Every AI prompt in this project now carries the kit. Unlock to change it.":"Draft it from your hearted and starred inspiration, edit it, then lock it. Locking happens at the end of Direction, or whenever you're ready."}</p></div>
+      ${locked?`<button class="btn" data-act="kitUnlock">Unlock to edit</button>`:`<button class="btn" data-act="kitDraft" id="kitDraftBtn">${kitReady(k)?"Redraft from inspiration":"Draft my kit"}</button><button class="btn primary" data-act="kitLock">Lock kit</button>`}
+    </div>
+    ${kitReady(k)?`<div class="card stack" style="gap:10px"><span class="eyebrow">Use it in a tool</span>
+      <div class="row" style="gap:8px">${guide().filter(t=>t.kind==="ai").map(t=>`<button class="btn small" data-kitcopy="${esc(t.name)}">Copy kit for ${esc(t.name)}</button>`).join("")}</div>
+      <div class="row" style="gap:8px"><button class="btn small primary" data-act="kitDownload">Download kit (.md)</button></div>
+      <p class="muted" style="font-size:13px">Each copy is written the way that tool works best. Reference images are on the Inspiration tab if a tool takes uploads.</p></div>`:""}
+    <form id="kitForm" class="stack" style="gap:16px">
+      <div class="card stack"><div class="row"><h3 style="flex:1">Palette</h3>${locked?"":`<button class="btn small" type="button" data-act="kitColors">Pull colors from inspiration</button><button class="btn small ghost" type="button" data-act="kitAddColor">+ Color</button>`}</div>
+        <div class="palette">${(k.palette||[]).map((c,i)=>`<div class="sw"><div class="chip-color" style="background:${esc(c.hex)}"></div>
+          <input type="text" id="k-hex-${i}" value="${esc(c.hex)}" ${dis} aria-label="Hex"><input type="text" id="k-cname-${i}" value="${esc(c.name||"")}" placeholder="Name" ${dis} aria-label="Color name">
+          <input type="text" id="k-role-${i}" value="${esc(c.role||"")}" placeholder="Role, e.g. accent" ${dis} aria-label="Role">${locked?"":`<button class="btn small ghost" type="button" data-kitdelc="${i}">Remove</button>`}</div>`).join("")||`<p class="muted" style="font-size:14px">No colors yet.</p>`}</div></div>
+      <div class="card stack"><h3>Type</h3><div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label for="k-disp">Display face</label><input type="text" id="k-disp" value="${esc(k.type.display)}" ${dis} placeholder="e.g. Recoleta"></div>
+        <div><label for="k-body">Body face</label><input type="text" id="k-body" value="${esc(k.type.body)}" ${dis} placeholder="e.g. Inter Tight"></div></div>
+        <div><label for="k-tnotes">Type notes</label><input type="text" id="k-tnotes" value="${esc(k.type.notes)}" ${dis} placeholder="e.g. headlines tight and oversized, body generous"></div></div>
+      <div class="card stack"><h3>Mood and imagery</h3>
+        <div><label for="k-mood">Mood words <span class="hint">comma separated</span></label><input type="text" id="k-mood" value="${esc((k.mood||[]).join(", "))}" ${dis} placeholder="e.g. playful, premium, surprising"></div>
+        <div><label for="k-img">Image style</label><textarea id="k-img" ${dis} placeholder="e.g. bright studio photography, saturated, hard shadows, close crops on product">${esc(k.imageStyle)}</textarea></div></div>
+      <div class="card stack"><h3>Voice and tone</h3><textarea id="k-voice" ${dis} placeholder="e.g. short, cheeky, never salesy; talks like a friend who's in on the secret">${esc(k.voice)}</textarea></div>
+      <div class="card"><div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label for="k-dos">Do <span class="hint">one per line</span></label><textarea id="k-dos" ${dis}>${esc(k.dos)}</textarea></div>
+        <div><label for="k-donts">Don't <span class="hint">one per line</span></label><textarea id="k-donts" ${dis}>${esc(k.donts)}</textarea></div></div></div>
+      <div class="card stack"><h3>References <span class="hint" style="font-weight:400">up to 8, with what to take from each</span></h3>
+        ${(k.references||[]).map((r,i)=>{ const c=S.cards.find(x=>x.id===r.cardId); if(!c) return ""; return `<div class="refrow">${c.thumb?`<img src="${esc(c.thumb)}" alt="">`:`<div class="noteface" style="width:72px;padding:6px;font-size:11px">${esc(c.title)}</div>`}
+          <div style="flex:1"><b style="font-size:14px">${esc(c.title)}</b><input type="text" id="k-take-${i}" value="${esc(r.take||"")}" ${dis} placeholder="What to take, e.g. the oversized type and sticky nav"></div>${locked?"":`<button class="btn small ghost" type="button" data-kitdelr="${i}">Remove</button>`}</div>`; }).join("")}
+        ${!locked && insp.filter(c=>!refIds.includes(c.id)).length && refIds.length<8?`<div><span class="muted" style="font-size:13px">Add from inspiration (hearted and starred first):</span>
+          <div class="refpick">${insp.filter(c=>!refIds.includes(c.id)).slice(0,12).map(c=>`<button type="button" class="refbtn" data-kitaddr="${c.id}" title="${esc(c.title)}">${c.thumb?`<img src="${esc(c.thumb)}" alt="${esc(c.title)}">`:esc(c.title).slice(0,20)}${c.heart?`<span>♥</span>`:""}</button>`).join("")}</div></div>`:""}
+        ${!insp.length?`<p class="muted" style="font-size:14px">Save some inspiration first, then pick the best here.</p>`:""}</div>
+      <div class="card stack"><div class="row"><h3 style="flex:1">Logo and brand assets</h3><button class="btn small" type="button" data-act="addCard" data-addsec="brand">+ Add asset</button></div>
+        ${brandCards(pid).length?`<div class="masonry" style="columns:4 140px">${brandCards(pid).map(c=>cardTile(c,false)).join("")}</div>`:`<p class="muted" style="font-size:14px">Logos, icons, brand guides and style tiles go here.</p>`}</div>
+      ${locked?"":`<div class="row"><button class="btn primary big" type="submit">Save kit</button></div>`}
+    </form>
+  </div>`;
+}
+function readKitForm(pid){
+  const k = clone(kitOf(pid) || KIT_FIELDS_EMPTY());
+  if(!$("#kitForm")) return k;
+  const g=id=>document.getElementById(id);
+  k.palette = (k.palette||[]).map((c,i)=>({hex:(g("k-hex-"+i)?g("k-hex-"+i).value.trim():c.hex)||c.hex, name:g("k-cname-"+i)?g("k-cname-"+i).value.trim():c.name, role:g("k-role-"+i)?g("k-role-"+i).value.trim():c.role}));
+  k.type = {display:g("k-disp").value.trim(), body:g("k-body").value.trim(), notes:g("k-tnotes").value.trim()};
+  k.mood = g("k-mood").value.split(",").map(x=>x.trim()).filter(Boolean).slice(0,10);
+  k.imageStyle = g("k-img").value.trim(); k.voice=g("k-voice").value.trim(); k.dos=g("k-dos").value.trim(); k.donts=g("k-donts").value.trim();
+  k.references = (k.references||[]).map((r,i)=>({cardId:r.cardId, take:g("k-take-"+i)?g("k-take-"+i).value.trim():r.take}));
+  return k;
+}
+async function draftKit(pid){
+  const btn=$("#kitDraftBtn"); if(btn){ btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Drafting…`; }
+  const k = readKitForm(pid);
+  const insp = cardsOf(pid).filter(c=>c.section==="inspiration" && c.status!=="parked").sort((a,b)=>((b.heart?10:0)+(b.stars||0))-((a.heart?10:0)+(a.stars||0)));
+  const best = insp.filter(c=>c.heart||c.stars||c.status!=="exploring"); const pool=(best.length>=3?best:insp).slice(0,10);
+  if(!k.palette.length){ const hex=await pullColors(pool); k.palette=hex.map((h,i)=>({hex:h, name:"", role:i===0?"base":""})); }
+  if(!k.references.length) k.references = pool.slice(0,6).map(c=>({cardId:c.id, take:""}));
+  const jobs = S.jobs.filter(j=>j.projectId===pid);
+  const brief = jobs.map(j=>`${j.title}. Must-haves: ${(j.intake||{}).musts||"-"}. Client notes: ${(j.intake||{}).notes||"-"}`).join("\n");
+  if(S.sample){
+    try{
+      const opts={modelTier:"default"};
+      try{ const lim=S.sample.limits? await S.sample.limits() : null; if(lim && lim.images){ opts.images = await Promise.all(pool.filter(c=>c.thumb).slice(0,6).map(c=>fetch(c.thumb).then(r=>r.blob()))); } }catch(e){}
+      const v = await S.sample.json(`You are helping Jenna, a senior designer, write the design system ("kit") for one client project. Base it only on her saved references and notes below. Original direction, not a copy of any reference. Write like a senior art director: specific, visual, short.
+Project: ${projName(pid)}
+Plans and brief:
+${brief||"none given"}
+Her references (title, tags, why she saved it, rating):
+${pool.map((c,i)=>`${i+1}. ${c.title} | tags: ${(c.tags||[]).join(", ")||"-"} | why: ${c.note||"-"} | ${c.heart?"favorite ":""}${c.stars?c.stars+" stars":""}`).join("\n")}
+Colors already pulled from the images: ${k.palette.map(c=>c.hex).join(", ")}
+${opts.images?"The images are attached in the same order.":""}
+Reply with only JSON: {"palette":[{"hex":"#RRGGBB","name":"","role":"base|text|accent|support"}],"type":{"display":"a real typeface suggestion","body":"a real typeface suggestion","notes":""},"mood":["3 to 6 words"],"imageStyle":"one or two sentences","voice":"one or two sentences","dos":"3 lines separated by \\n","donts":"3 lines separated by \\n","takes":["for each reference in order, what to take from it, under 12 words"]}`, opts);
+      if(Array.isArray(v.palette)&&v.palette.length) k.palette=v.palette.slice(0,8).map(c=>({hex:/^#[0-9a-f]{6}$/i.test(c.hex)?c.hex.toUpperCase():"#888888", name:String(c.name||""), role:String(c.role||"")}));
+      if(v.type) k.type={display:String(v.type.display||k.type.display), body:String(v.type.body||k.type.body), notes:String(v.type.notes||"")};
+      if(Array.isArray(v.mood)) k.mood=v.mood.map(String).slice(0,8);
+      ["imageStyle","voice","dos","donts"].forEach(f=>{ if(v[f]) k[f]=String(v[f]); });
+      if(Array.isArray(v.takes)) k.references = k.references.map((r,i)=>({cardId:r.cardId, take:r.take||String(v.takes[pool.findIndex(c=>c.id===r.cardId)]||"")}));
+      toast("Kit drafted. Edit anything, then lock it.");
+    }catch(e){ toast("Claude couldn't draft it just now. Colors and references are filled in; write the rest or try again."); }
+  } else toast("Colors and references are filled in. Claude couldn't be reached, so write the rest or try again.");
+  k.status="draft"; putKit(pid, k); render();
+}
+
+/* ---------- focus drawer ---------- */
+function drawer(j){
+  if(j.example) return `<aside class="drawer"><div class="stack" style="gap:8px"><span class="eyebrow">Project drawer</span><p class="muted" style="font-size:14px">Press “Use this plan” to put the example in a project. Then inspiration and the kit live here.</p></div></aside>`;
+  if(!j.projectId) return `<aside class="drawer"><div class="stack" style="gap:10px"><span class="eyebrow">Project drawer</span><p style="font-size:14px">Which project is this plan for?</p>${projSelect("assignProj","")}</div></aside>`;
+  const tab = S.drawerTab || "insp"; const pid=j.projectId; const k=kitOf(pid);
+  const s = curStep(j); const stageSec = STAGE_TO_SECTION[s&&s.stage] || "inspiration";
+  const insp = cardsOf(pid).filter(c=>c.section==="inspiration").slice(0,18);
+  return `<aside class="drawer ${S.drawerOpen?"open":""}">
+    <div class="row" style="gap:6px"><span class="eyebrow" style="flex:1"><a href="#project-${pid}">${esc(projName(pid))}</a></span><button class="btn small ghost drawer-close" data-act="drawerToggle">Close</button></div>
+    <div class="tabs" style="margin-top:6px"><button class="tab ${tab==="insp"?"on":""}" data-drt="insp">Inspiration <b>${cardsOf(pid).filter(c=>c.section==="inspiration").length}</b></button><button class="tab ${tab==="kit"?"on":""}" data-drt="kit">Kit${k&&k.status==="locked"?" ✓":""}</button></div>
+    ${tab==="insp"?`
+      <div class="dropzone" id="drDrop" tabindex="0" style="margin-top:12px">Drop, paste or click to add</div>
+      <input type="file" id="drFile" accept="image/*,application/pdf" multiple style="display:none">
+      <div class="row" style="gap:6px;margin-top:8px"><label for="drSec" style="margin:0;font-size:13px">Save to</label><select id="drSec" style="width:auto;flex:1;padding:6px 8px;font-size:13px">
+        <option value="inspiration" ${S.drawerSec!=="stage"&&S.drawerSec!=="brand"?"selected":""}>Inspiration</option><option value="brand" ${S.drawerSec==="brand"?"selected":""}>Brand assets</option>${stageSec!=="inspiration"&&stageSec!=="brand"?`<option value="stage" ${S.drawerSec==="stage"?"selected":""}>Work files: ${SECTION_NAME[stageSec]}</option>`:""}</select>
+        <button class="btn small" data-act="addLink">Link</button></div>
+      <div class="drgrid">${insp.map(c=>`<button class="drthumb" data-peek="${c.id}" title="${esc(c.title)}">${c.thumb?`<img src="${esc(c.thumb)}" alt="${esc(c.title)}">`:`<span>${esc(c.title).slice(0,24)}</span>`}${c.heart?`<i>♥</i>`:""}</button>`).join("")}</div>
+      ${!insp.length?`<p class="muted" style="font-size:13px;margin-top:10px">Nothing saved yet. Screenshots you paste here land in this project's inspiration.</p>`:""}`
+    :`<div class="stack" style="gap:10px;margin-top:12px">${kitReady(k)?`
+        ${k.palette.length?`<div class="row" style="gap:4px">${k.palette.map(c=>`<span class="dot" style="background:${esc(c.hex)}" title="${esc(c.hex+" "+(c.name||""))}"></span>`).join("")}</div>`:""}
+        ${k.type.display?`<p style="font-size:13px"><b>Type:</b> ${esc(k.type.display)}${k.type.body?" / "+esc(k.type.body):""}</p>`:""}
+        ${k.mood.length?`<p style="font-size:13px"><b>Mood:</b> ${esc(k.mood.join(", "))}</p>`:""}
+        <p style="font-size:13px" class="muted">${k.status==="locked"?"Locked. Every AI prompt here carries it.":"Draft. Lock it on the Kit tab when it's right."}</p>
+        <div class="stack" style="gap:6px">${guide().filter(t=>t.kind==="ai").map(t=>`<button class="btn small" data-kitcopy="${esc(t.name)}">Copy kit for ${esc(t.name)}</button>`).join("")}</div>`
+      :`<p class="muted" style="font-size:13px">No kit yet. It gets drafted at Direction from your hearted inspiration, or anytime you like.</p><button class="btn small" data-act="openKit">Make the kit now</button>`}
+      <a class="btn small ghost" href="#project-${pid}" data-act="openKit">Open the full kit</a></div>`}
+  </aside>`;
+}
+function projSelect(id, current){
+  return `<select id="${id}" aria-label="Project"><option value="">Choose a project…</option>${S.projects.map(p=>`<option value="${p.id}" ${p.id===current?"selected":""}>${esc(p.name)}</option>`).join("")}<option value="__new">+ New project…</option></select>`;
+}
+async function drawerSave(j, files){
+  const s=curStep(j); const o=$("#f-out"); if(o&&s) s.output=o.value;
+  const pick=S.drawerSec||"inspiration"; const section = pick==="stage" ? (STAGE_TO_SECTION[s&&s.stage]||"designs") : pick;
+  toast("Saving…");
+  let n=0; for(const f of files){ const c=await cardFromFile(f, {projectId:j.projectId, jobId:j.id, section, stage:s&&s.stage}); if(c) n++; }
+  if(n){ putJob(j, true); toast(`Saved ${n} to ${SECTION_NAME[section]}.`); render(); }
+}
+function peek(id){
+  const c=S.cards.find(x=>x.id===id); if(!c) return;
+  modal(`${c.kind==="image"?`<img src="${esc(imgSrc(c))}" alt="${esc(c.title)}" style="width:100%;max-height:55vh;object-fit:contain;border-radius:10px;background:var(--paper)" onerror="this.src='${esc(c.thumb||"")}'">`:c.thumb?`<img src="${esc(c.thumb)}" alt="" style="width:100%;border-radius:10px">`:""}
+    <div class="row"><b style="flex:1">${esc(c.title)}</b><button class="heart ${c.heart?"on":""}" id="pkHeart" style="font-size:22px">♥</button>${[1,2,3].map(n=>`<button class="star ${c.stars>=n?"on":""}" data-pks="${n}" style="font-size:20px">★</button>`).join("")}</div>
+    ${c.url?`<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(domainOf(c.url))} ↗</a>`:""}
+    <div><label for="pkNote">Why you saved it</label><input type="text" id="pkNote" value="${esc(c.note)}"></div>
+    <div class="row"><button class="btn primary" id="pkSave">Done</button><span class="spacer"></span><a class="btn small ghost" href="#card-${c.id}">Full card</a></div>`,
+    {pkHeart:()=>{ c.heart=!c.heart; $("#pkHeart").classList.toggle("on",c.heart); }, pkSave:()=>{ c.note=$("#pkNote").value; putCard(c,true); closeLayer(); render(); }});
+  document.querySelectorAll("[data-pks]").forEach(b=>b.onclick=()=>{ const n=+b.dataset.pks; c.stars=c.stars===n?n-1:n; document.querySelectorAll("[data-pks]").forEach(x=>x.classList.toggle("on", c.stars>=+x.dataset.pks)); });
+}
+
+/* ---------- settings ---------- */
+function settingsView(){
+  return `<div class="stack" style="gap:22px"><div class="stack" style="gap:8px"><span class="eyebrow">Tune the Lab</span><h1>Settings</h1></div>
+    <div class="jobs">
+      <a class="card job" href="#guide"><h3>Tool guide</h3><p class="muted" style="font-size:14px">Which tool for which job, and how each tool has done for you.</p></a>
+      <a class="card job" href="#playbooks"><h3>Playbooks</h3><p class="muted" style="font-size:14px">The stage order and “good enough” bars for each kind of work.</p></a>
+      <a class="card job" href="#parking"><h3>Parking lot</h3><p class="muted" style="font-size:14px">Everything you've parked, ${S.parking.filter(p=>!p.done).length} open.</p></a>
+    </div></div>`;
+}
+
+/* ---------- wiring (delegated once) ---------- */
+function kitClick(e){
+  const r=view(); const t=e.target;
+  const pt=t.closest("[data-ptab]"); if(pt){ S.projTab[r.id]=pt.dataset.ptab; S.wallTag[r.id]=null; render(); return; }
+  const ws=t.closest("[data-wsub]"); if(ws){ S.wallSection[r.id]=ws.dataset.wsub; S.wallTag[r.id]=null; render(); return; }
+  const kc=t.closest("[data-kitcopy]"); if(kc){ const pid = r.v==="project"? r.id : (getJob(r.id)||{}).projectId; copyText(kitText(pid, kc.dataset.kitcopy)); return; }
+  const dt=t.closest("[data-drt]"); if(dt){ S.drawerTab=dt.dataset.drt; render(); return; }
+  const pk=t.closest("[data-peek]"); if(pk){ peek(pk.dataset.peek); return; }
+  if(r.v!=="project") return;
+  const pid=r.id;
+  const ar=t.closest("[data-kitaddr]"); if(ar){ const k=readKitForm(pid); if(k.references.length<8) k.references.push({cardId:ar.dataset.kitaddr, take:""}); putKit(pid,k); render(); return; }
+  const dr=t.closest("[data-kitdelr]"); if(dr){ const k=readKitForm(pid); k.references.splice(+dr.dataset.kitdelr,1); putKit(pid,k); render(); return; }
+  const dc=t.closest("[data-kitdelc]"); if(dc){ const k=readKitForm(pid); k.palette.splice(+dc.dataset.kitdelc,1); putKit(pid,k); render(); return; }
+}
+$("#app").addEventListener("click", kitClick);
+function wireKit(r){
+  const kf=$("#kitForm"); if(kf) kf.onsubmit=e=>{ e.preventDefault(); putKit(r.id, readKitForm(r.id)); toast("Kit saved."); render(); };
+  const dd=$("#drDrop"), df=$("#drFile");
+  if(dd && r.v==="focus"){ const j=getJob(r.id);
+    dd.onclick=()=>df.click(); dd.onkeydown=e=>{ if(e.key==="Enter") df.click(); }; df.onchange=()=>drawerSave(j,[...df.files]);
+    dd.ondragover=e=>{ e.preventDefault(); dd.classList.add("over"); }; dd.ondragleave=()=>dd.classList.remove("over");
+    dd.ondrop=e=>{ e.preventDefault(); dd.classList.remove("over"); const fs=[...e.dataTransfer.files]; if(fs.length) drawerSave(j,fs); else { const u=e.dataTransfer.getData("text/uri-list")||e.dataTransfer.getData("text"); if(/^https?:/.test(u)) openAddCard({projectId:j.projectId, jobId:j.id, url:u.trim(), section:"inspiration", stay:true}); } }; }
+  const ds=$("#drSec"); if(ds) ds.onchange=()=>{ S.drawerSec=ds.value; };
+}
+
+boot();
+</script>
+</body>
+</html>

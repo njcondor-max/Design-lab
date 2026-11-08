@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: design-lab
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    disk:
+      name: lab-files
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: MONTHLY_CAP_USD
+        value: "20"
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OWNER_PASSWORD
+        sync: false
+      - key: JENNA_PASSWORD
+        sync: false
+      - key: DEMO_PASSWORD
+        sync: false
