@@ -28,6 +28,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || "";
 const MONTHLY_CAP_USD = Number(process.env.MONTHLY_CAP_USD || 20);
 const DEMO_DAILY_AI = Number(process.env.DEMO_DAILY_AI || 25);
 const IMAGE_QUOTA_MB = Number(process.env.IMAGE_QUOTA_MB || 900);
+const LAB_LABEL = process.env.LAB_LABEL || ""; // e.g. "Preview" on the test copy
 const MODELS = {
   quick: process.env.MODEL_QUICK || "claude-haiku-5-5",
   default: process.env.MODEL_DEFAULT || "claude-sonnet-5-5",
@@ -161,7 +162,7 @@ app.get("/api/me", needUser, (req, res) => res.json({ id: req.user.id, name: req
 /* ---------- the Lab page ---------- */
 const LAB = fs.readFileSync(path.join(__dirname, "public", "lab.html"), "utf8");
 function labHtml(u) {
-  const bar = `<div id="dl-userbar" style="position:fixed;left:12px;bottom:12px;z-index:30;font:13px system-ui,sans-serif;background:rgba(22,24,29,.88);color:#fff;border-radius:999px;padding:6px 12px;display:flex;gap:10px;align-items:center">${u.name}${u.role === "demo" ? " (demo)" : ""}${u.role === "owner" ? ' · <a href="/admin" style="color:#9fb0ff">Admin</a>' : ""} · <a href="/logout" style="color:#9fb0ff">Sign out</a></div>`;
+  const bar = `<div id="dl-userbar" style="position:fixed;left:12px;bottom:12px;z-index:30;font:13px system-ui,sans-serif;background:${LAB_LABEL ? "#B4500F" : "rgba(22,24,29,.88)"};color:#fff;border-radius:999px;padding:6px 12px;display:flex;gap:10px;align-items:center">${LAB_LABEL ? `<b>${esc(LAB_LABEL)} copy: test data only</b> · ` : ""}${u.name}${u.role === "demo" ? " (demo)" : ""}${u.role === "owner" ? ' · <a href="/admin" style="color:#9fb0ff">Admin</a>' : ""} · <a href="/logout" style="color:#9fb0ff">Sign out</a></div>`;
   return LAB.replace("<head>", `<head>\n<script src="/runtime.js?v=${BUILD}" data-app="design-lab"></script>`).replace("</body>", bar + "</body>");
 }
 const BUILD = crypto.createHash("sha1").update(LAB + fs.readFileSync(path.join(__dirname, "public", "runtime.js"))).digest("hex").slice(0, 8);
@@ -345,7 +346,7 @@ const FONTS = `<link href="https://fonts.googleapis.com/css2?family=Bricolage+Gr
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 function loginPage(err) {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Design Lab</title>${FONTS}<style>${PAGE_CSS}</style></head><body>
-<form class="box" method="post" action="/login"><h1><i></i>Design Lab</h1>
+<form class="box" method="post" action="/login"><h1><i></i>Design Lab${LAB_LABEL ? ` <span style="font-size:14px;background:#B4500F;color:#fff;border-radius:6px;padding:2px 8px">${esc(LAB_LABEL)}</span>` : ""}</h1>
 <div><label for="name">Who's signing in?</label><select id="name" name="name"><option value="jenna">Jenna</option><option value="nathan">Nathan</option><option value="demo">Demo</option></select></div>
 <div><label for="pw">Password</label><input id="pw" name="password" type="password" autocomplete="current-password" required autofocus></div>
 ${err ? `<p class="err">${esc(err)}</p>` : ""}<button type="submit">Sign in</button></form></body></html>`;
