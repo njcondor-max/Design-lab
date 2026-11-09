@@ -244,6 +244,28 @@ nav.links a{white-space:nowrap}
 .refbtn img{width:100%;height:100%;object-fit:cover;display:block}
 .refbtn span{position:absolute;top:1px;right:4px;color:#E0245E}
 .gear{font-size:18px;line-height:1}
+
+#chatFab{position:fixed;right:16px;bottom:16px;z-index:16;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+@media (max-width:1000px){.drawer-fab{bottom:64px !important}}
+#chatPanel{position:fixed;top:0;right:0;bottom:0;width:min(400px,100vw);background:var(--card);border-left:1px solid var(--line);z-index:18;display:none;flex-direction:column;box-shadow:-12px 0 40px rgba(0,0,0,.12)}
+body.chat-open #chatPanel{display:flex}
+@media (min-width:1100px){body.chat-open{padding-right:400px} body.chat-open header.top{right:400px}}
+.chat-head{display:flex;gap:10px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+.chat-log{flex:1;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.chat-empty{font-size:14px;color:var(--muted)}
+.chat-suggest{text-align:left;font-weight:400;color:var(--ink)}
+.msg{max-width:92%;padding:10px 12px;border-radius:14px;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.msg p{margin:0 0 6px}.msg p:last-child{margin:0}.msg ul{margin:4px 0 6px;padding-left:18px}.msg code{font-size:13px;background:var(--paper);padding:0 4px;border-radius:4px}
+.msg.me{align-self:flex-end;background:var(--ai-bg);color:var(--ink);border-bottom-right-radius:4px}
+.msg.me img{display:block;max-width:100%;border-radius:8px;margin-bottom:6px}
+.msg.bot{align-self:flex-start;background:var(--paper);border:1px solid var(--line);border-bottom-left-radius:4px}
+.chat-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chat-tools{margin-top:6px}
+.linkbtn{border:0;background:none;padding:0;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline}
+.chat-input{border-top:1px solid var(--line);padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.chat-input textarea{min-height:56px;max-height:180px;background:var(--paper)}
+.chat-att{position:relative;display:inline-block}.chat-att img{width:54px;height:54px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.chat-att button{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:0;background:var(--ink);color:var(--paper);cursor:pointer;font-size:12px;line-height:1}
 </style>
 </head>
 <body>
@@ -1894,6 +1916,286 @@ function wireKit(r){
     dd.ondrop=e=>{ e.preventDefault(); dd.classList.remove("over"); const fs=[...e.dataTransfer.files]; if(fs.length) drawerSave(j,fs); else { const u=e.dataTransfer.getData("text/uri-list")||e.dataTransfer.getData("text"); if(/^https?:/.test(u)) openAddCard({projectId:j.projectId, jobId:j.id, url:u.trim(), section:"inspiration", stay:true}); } }; }
   const ds=$("#drSec"); if(ds) ds.onchange=()=>{ S.drawerSec=ds.value; };
 }
+
+/* ================= Ask Claude: a chat that knows where she is ================= */
+const CHAT_MAX = 80;              // messages kept per thread
+const CHAT_HISTORY_TO_MODEL = 14; // recent messages sent with each question
+S.chat = {open:false, key:null, thread:null, sending:false, deep:false, images:[], unsub:null, streamText:""};
+
+/* Which thread and what context belong to the current screen */
+function chatScope(){
+  const r = view();
+  let job=null, pid=null;
+  if(r.v==="focus"||r.v==="job"){ job=getJob(r.id); pid=job&&!job.example?job.projectId:null; }
+  else if(r.v==="project"){ pid=r.id; }
+  else if(r.v==="card"){ const c=S.cards.find(x=>x.id===r.id); pid=c&&c.projectId; }
+  return {r, job, pid, key: pid || "general"};
+}
+function screenName(r){
+  return ({home:"Today (her home screen)", new:"planning intake", job:"the full plan for a task", focus:"focus mode on one step", project:"a project page ("+(S.projTab[r.id]||"plans")+" tab)", card:"a saved card", board:"the Library", guide:"the Tool guide", playbooks:"Playbooks", parking:"the Parking lot", settings:"Settings", projects:"the projects list", compare:"comparing saved cards"})[r.v] || r.v;
+}
+function chatContext(){
+  const {r, job, pid} = chatScope();
+  const out = [`Screen: ${screenName(r)}.`];
+  if(pid){
+    const p = projById(pid);
+    out.push(`Project: ${p?p.name:"?"}`);
+    if(p&&p.brief) out.push(`Client brief:\n${p.brief.slice(0,5000)}`);
+    const kt = kitText(pid,"Claude"); if(kt) out.push(`Kit (${(kitOf(pid)||{}).status||"draft"}):\n${kt}`);
+    const plans = S.jobs.filter(j=>j.projectId===pid);
+    if(plans.length) out.push(`Plans in this project: ${plans.map(j=>`${j.title} (${liveSteps(j).filter(s=>s.status).length}/${liveSteps(j).length} done)`).join("; ")}`);
+    const insp = cardsOf(pid).filter(c=>c.section==="inspiration").slice(0,10);
+    if(insp.length) out.push(`Recent inspiration: ${insp.map(c=>`${c.title}${c.heart?" (favorite)":""}${c.note?": "+c.note.slice(0,80):""}`).join(" | ")}`);
+  }
+  if(job){
+    const live = liveSteps(job), cur = curStep(job);
+    const fam = job.family ? family(job.family) : null;
+    out.push(`Task: ${job.title}${fam?` (${fam.name}, ${job.fresh==="redesign"?"reworking something existing":"starting fresh"})`:""}. Approach: ${job.summary||"-"}`);
+    if(job.intake) out.push(`Intake: due ${job.intake.deadline||"-"}; has ${job.intake.have||"-"}; done looks like ${job.intake.done||"-"}; must-haves ${job.intake.musts||"-"}; time today ${job.intake.today||"-"}`);
+    out.push("Steps:\n"+live.map((s,i)=>`${i+1}. [${s.status||(s===cur?"CURRENT":"to do")}] ${stageName(s.stage)} · ${s.title} · ${TAGS[s.tag].label} · ${s.tool} · ${s.minutes} min${s.spentSec?` (spent ${Math.round(s.spentSec/60)} min)`:""}`).join("\n"));
+    if(cur){
+      out.push(`Current step in detail:\nTitle: ${cur.title}\nStage: ${stageName(cur.stage)} (stage bar: ${stageBar(job,cur.stage)||"-"})\nWho: ${TAGS[cur.tag].label}, tool: ${cur.tool}, fidelity: ${cur.fidelity||"-"}\nGood enough when: ${cur.goodEnough||"-"}\nWhy: ${cur.why||"-"}\nInstruction or prompt: ${cur.prompt||"-"}\nCheck: ${(cur.check||[]).join("; ")||"-"}\nHer notes so far: ${cur.output||"-"}`);
+    }
+    const parked = S.parking.filter(x=>x.jobId===job.id && !x.done).map(x=>x.text);
+    if(parked.length) out.push(`Parked from this task: ${parked.join(" | ")}`);
+  }
+  out.push(`Tool guide:\n${guideText()}`);
+  return out.join("\n\n");
+}
+const CHAT_RULES = `You are Claude inside Jenna's Design Lab. Jenna is a senior graphic designer (about ten years) who runs her own studio. Her struggles, in her words: knowing which steps to take and in what order, jumping ahead to high-fidelity polish before inspiration and direction are set, getting sidetracked, using Claude for work another tool does better, and perfectionism that stalls good work. She wants senior-level work that doesn't look AI-generated.
+
+Your job: answer her question clearly and briefly, using the context below, then tie it back to her current step and its "good enough" bar. You are a focus coach as well as a helper.
+- Be concise: usually 2 to 6 short sentences or a few bullets. Plain, warm, direct. No hype, no em dashes.
+- If her question pulls away from the current step, answer briefly and suggest parking it.
+- If she's polishing before the right stage, or second-guessing work that meets the bar, say so kindly and point to the bar.
+- Recommend the right tool from her tool guide; don't default to Claude.
+- Never invent facts about the client. Say what you don't know.
+- If she shares an image, look at it and give specific, senior-level feedback measured against the brief, kit and current step.
+
+You can offer actions as buttons. Only offer an action when it clearly helps, at most 3. After your answer, if you offer actions, end with a fenced block exactly like this:
+\`\`\`actions
+[{"type":"...","label":"short button text", ...fields}]
+\`\`\`
+Action types (use only these, and only when the needed context exists):
+- {"type":"split_step","label":"","parts":["smaller step 1","smaller step 2"]}  replaces the current step with smaller steps
+- {"type":"add_step","label":"","title":"","stage":"understand|explore|direction|rough|build|critique|polish|deliver","tag":"you|ai|together","tool":"tool name from the guide or None","minutes":15,"goodEnough":"","prompt":""}  adds a step after the current one
+- {"type":"edit_step","label":"","field":"title|goodEnough|prompt|minutes|tool|tag","value":""}  changes the current step
+- {"type":"add_note","label":"","text":""}  adds a note to the current step
+- {"type":"park","label":"","text":""}  parks a thought for later
+- {"type":"save_card","label":"","section":"inspiration|brief|brand","title":"","text":""}  saves a text card to the project
+- {"type":"add_to_brief","label":"","text":""}  appends to the project's client brief
+Never include the actions block unless you are offering at least one action.`;
+
+/* ---------- storage ---------- */
+function chatSub(key){
+  if(S.chat.key===key && S.chat.unsub) return;
+  if(S.chat.unsub){ try{ S.chat.unsub(); }catch(e){} S.chat.unsub=null; }
+  S.chat.key=key; S.chat.thread=null;
+  if(!S.db){ S.chat.thread={messages:[]}; renderChat(); return; }
+  S.chat.unsub = S.db.doc("chats/"+key).onSnapshot(s=>{
+    if(S.chat.sending) return;
+    S.chat.thread = s.exists ? clone(s.data()) : {messages:[]};
+    renderChat();
+  }, ()=>{ S.chat.thread={messages:[]}; renderChat(); });
+}
+function saveThread(){
+  const t=S.chat.thread; if(!t) return;
+  if(t.messages.length>CHAT_MAX) t.messages=t.messages.slice(-CHAT_MAX);
+  t.updatedAt=Date.now();
+  save("chats/"+S.chat.key, JSON.parse(JSON.stringify(t)));
+}
+
+/* ---------- rendering ---------- */
+function mdLite(t){
+  const lines = esc(t).split("\n"); let html="", inList=false;
+  for(const ln of lines){
+    const b = ln.match(/^\s*[-*•]\s+(.*)/) || ln.match(/^\s*\d+[.)]\s+(.*)/);
+    if(b){ if(!inList){ html+="<ul>"; inList=true; } html+="<li>"+b[1]+"</li>"; continue; }
+    if(inList){ html+="</ul>"; inList=false; }
+    html += ln.trim() ? "<p>"+ln+"</p>" : "";
+  }
+  if(inList) html+="</ul>";
+  return html.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>");
+}
+function splitActions(text){
+  const i = text.indexOf("```actions");
+  if(i<0) return {body:text.trim(), actions:[]};
+  const body = text.slice(0,i).trim();
+  let actions=[]; const rest=text.slice(i+10); const end=rest.indexOf("```");
+  try{ actions = JSON.parse(end>=0?rest.slice(0,end):rest); if(!Array.isArray(actions)) actions=[]; }catch(e){ actions=[]; }
+  return {body, actions: actions.filter(a=>a && ACTION_TYPES.includes(a.type)).slice(0,3)};
+}
+function chatShell(){
+  let el=document.getElementById("chatPanel");
+  if(!el){
+    el=document.createElement("aside"); el.id="chatPanel"; el.setAttribute("aria-label","Ask Claude");
+    document.body.appendChild(el);
+    const fab=document.createElement("button"); fab.id="chatFab"; fab.className="btn primary"; fab.type="button"; fab.textContent="Ask Claude"; fab.onclick=()=>toggleChat(true);
+    document.body.appendChild(fab);
+  }
+  return el;
+}
+function renderChat(){
+  const el=chatShell(); const fab=document.getElementById("chatFab");
+  document.body.classList.toggle("chat-open", S.chat.open);
+  fab.style.display = S.chat.open ? "none" : "";
+  if(!S.chat.open){ el.innerHTML=""; return; }
+  const {r, job, pid} = chatScope();
+  const where = pid ? projName(pid) : "General";
+  const cur = job ? curStep(job) : null;
+  const msgs = (S.chat.thread&&S.chat.thread.messages)||[];
+  const canAI = !!S.sample;
+  el.innerHTML = `
+    <div class="chat-head"><div style="flex:1;min-width:0"><b>Ask Claude</b><div class="muted" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(where)}${cur?` · on “${esc(cur.title)}”`:` · ${esc(screenName(r))}`}</div></div>
+      <button class="btn small ghost" id="chatClose" aria-label="Close chat">Close</button></div>
+    <div class="chat-log" id="chatLog">
+      ${!S.chat.thread?`<p class="muted" style="font-size:13px"><span class="spin"></span> Loading…</p>`:""}
+      ${S.chat.thread && !msgs.length?`<div class="chat-empty"><p><b>Ask anything about where you are.</b> Claude can see ${pid?"this project's brief, kit and plans":"your Lab"}${cur?", the step you're on and what's done":""}.</p>
+        <div class="stack" style="gap:6px;margin-top:8px">${(cur?["What does good enough look like for this step?","I'm stuck, what's the smallest next move?","Which tool should I use for this?"]:["What should I work on next?","How do I start a new project here?"]).map(q=>`<button class="tagchip chat-suggest" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div></div>`:""}
+      ${msgs.map((m,i)=>m.role==="user"
+        ? `<div class="msg me">${(m.images||[]).map(id=>`<img src="/_blob/${esc(id)}" alt="Attached image">`).join("")}${mdLite(m.text||"")}</div>`
+        : `<div class="msg bot">${mdLite(m.text||"")}${(m.actions||[]).length?`<div class="chat-actions">${m.actions.map((a,k)=>`<button class="btn small ${a.done?"":"primary"}" data-act-msg="${i}" data-act-k="${k}" ${a.done?"disabled":""}>${a.done?"✓ ":""}${esc(a.label||a.type)}</button>`).join("")}</div>`:""}
+            ${m.text?`<div class="chat-tools"><button class="linkbtn" data-park-msg="${i}">Park this</button></div>`:""}</div>`).join("")}
+      ${S.chat.sending?`<div class="msg bot" id="chatStream">${S.chat.streamText?mdLite(splitActions(S.chat.streamText).body):`<span class="spin"></span>`}</div>`:""}
+    </div>
+    <form class="chat-input" id="chatForm">
+      ${S.chat.images.length?`<div class="row" style="gap:6px">${S.chat.images.map((im,k)=>`<span class="chat-att"><img src="${im.thumb}" alt=""><button type="button" data-unatt="${k}" aria-label="Remove image">×</button></span>`).join("")}</div>`:""}
+      <textarea id="chatText" rows="2" placeholder="${canAI?"Ask about this step, the project, a tool… (paste a screenshot to ask about it)":"Claude isn't available right now"}" ${canAI?"":"disabled"}></textarea>
+      <div class="row" style="gap:8px">
+        <label class="muted" style="font-size:12px;display:flex;gap:6px;align-items:center;margin:0;font-weight:400"><input type="checkbox" id="chatDeep" ${S.chat.deep?"checked":""}> Think harder</label>
+        <button class="btn small ghost" type="button" id="chatAttach" ${canAI?"":"disabled"}>Image</button>
+        <input type="file" id="chatFile" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none">
+        <span class="spacer"></span>
+        <button class="btn small primary" type="submit" ${canAI&&!S.chat.sending?"":"disabled"}>Send</button>
+      </div>
+    </form>`;
+  const log=document.getElementById("chatLog"); log.scrollTop=log.scrollHeight;
+  wireChat();
+}
+function wireChat(){
+  const g=id=>document.getElementById(id);
+  g("chatClose").onclick=()=>toggleChat(false);
+  g("chatForm").onsubmit=e=>{ e.preventDefault(); sendChat(g("chatText").value); };
+  g("chatText").onkeydown=e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendChat(e.target.value); } };
+  g("chatText").onpaste=e=>{ const fs=[...(e.clipboardData&&e.clipboardData.files||[])].filter(f=>/^image\//.test(f.type)); if(fs.length){ e.preventDefault(); e.stopPropagation(); attachImages(fs); } };
+  g("chatDeep").onchange=e=>{ S.chat.deep=e.target.checked; };
+  g("chatAttach").onclick=()=>g("chatFile").click();
+  g("chatFile").onchange=()=>attachImages([...g("chatFile").files]);
+  const panel=g("chatPanel");
+  panel.ondragover=e=>{ e.preventDefault(); }; panel.ondrop=e=>{ e.preventDefault(); attachImages([...e.dataTransfer.files].filter(f=>/^image\//.test(f.type))); };
+  panel.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>sendChat(b.dataset.q));
+  panel.querySelectorAll("[data-unatt]").forEach(b=>b.onclick=()=>{ S.chat.images.splice(+b.dataset.unatt,1); renderChat(); });
+  panel.querySelectorAll("[data-act-msg]").forEach(b=>b.onclick=()=>runAction(+b.dataset.actMsg, +b.dataset.actK));
+  panel.querySelectorAll("[data-park-msg]").forEach(b=>b.onclick=()=>{ const m=S.chat.thread.messages[+b.dataset.parkMsg]; const {job}=chatScope(); addPark("From Claude: "+(m.text||"").split("\n")[0].slice(0,140), job&&!job.example?job.id:null, true); toast("Parked."); });
+  const ta=g("chatText"); if(ta && !S.chat.sending) ta.focus();
+}
+function toggleChat(open){
+  S.chat.open = open;
+  if(open) chatSub(chatScope().key);
+  renderChat();
+}
+async function attachImages(files){
+  for(const f of files.slice(0, 3-S.chat.images.length)){
+    const t = await makeThumb(f);
+    S.chat.images.push({file:f, thumb:t.thumb});
+  }
+  if(files.length > 3) toast("Up to 3 images per message.");
+  renderChat();
+}
+
+/* ---------- asking ---------- */
+async function sendChat(text){
+  text=(text||"").trim();
+  if((!text && !S.chat.images.length) || S.chat.sending || !S.sample) return;
+  if(!S.chat.thread) S.chat.thread={messages:[]};
+  const scope = chatScope();
+  if(scope.key!==S.chat.key){ chatSub(scope.key); }
+  const imgs = S.chat.images.splice(0);
+  const userMsg = {role:"user", text: text || "(image)", at:Date.now(), by:S.me, images:[]};
+  S.chat.thread.messages.push(userMsg);
+  S.chat.sending=true; S.chat.streamText=""; renderChat();
+  const blobs=[];
+  for(const im of imgs){
+    blobs.push(im.file);
+    try{ const st=await storeFile(im.file, im.file.type); if(st.id) userMsg.images.push(st.id); }catch(e){}
+  }
+  const history = S.chat.thread.messages.slice(0,-1).slice(-CHAT_HISTORY_TO_MODEL).map(m=>({role:m.role==="user"?"user":"assistant", content:(m.text||"")+(m.images&&m.images.length?" [image attached]":"")}));
+  const input = [
+    {role:"user", content: CHAT_RULES + "\n\nCONTEXT (current as of this message):\n" + chatContext() + "\n\nI'll ask my questions next."},
+    {role:"assistant", content:"Got it. Ask away."},
+    ...history,
+    {role:"user", content: text || "What do you think of this image, measured against the brief, kit and my current step?"}
+  ];
+  /* the model needs alternating turns: merge any back-to-back roles */
+  const turns=[]; for(const t of input){ const last=turns[turns.length-1]; if(last&&last.role===t.role) last.content+="\n\n"+t.content; else turns.push({...t}); }
+  let reply="";
+  try{
+    const opts={modelTier: S.chat.deep||blobs.length ? "default" : "quick", cache:false,
+      onText: ({text:t})=>{ reply=t; S.chat.streamText=t; const el=document.getElementById("chatStream"); if(el){ el.innerHTML=mdLite(splitActions(t).body)||'<span class="spin"></span>'; const log=document.getElementById("chatLog"); if(log) log.scrollTop=log.scrollHeight; } }};
+    if(blobs.length) opts.images=blobs;
+    const res = await S.sample(turns, opts);
+    reply = (res && res.text) || reply;
+  }catch(e){
+    reply = e && e.code==="rate_limited" ? (e.message||"Claude is busy or this month's AI budget is used up. Try again later.") : "Sorry, that didn't go through. Try again in a moment.";
+  }
+  const {body, actions} = splitActions(reply);
+  S.chat.thread.messages.push({role:"assistant", text: body || "(no answer)", actions, at:Date.now()});
+  S.chat.sending=false; S.chat.streamText="";
+  saveThread(); renderChat();
+}
+
+/* ---------- doing what the buttons say ---------- */
+const ACTION_TYPES = ["split_step","add_step","edit_step","add_note","park","save_card","add_to_brief"];
+function runAction(mi, k){
+  const m = S.chat.thread.messages[mi]; const a = m && m.actions && m.actions[k]; if(!a || a.done) return;
+  const {job, pid} = chatScope();
+  const cur = job ? curStep(job) : null;
+  const needStep = ["split_step","add_step","edit_step","add_note"].includes(a.type);
+  if(needStep && (!job || !cur)){ toast("Open the plan or the step this is about, then tap it again."); return; }
+  if(needStep && job.example){ toast("Press “Use this plan” first so changes can be saved."); return; }
+  if(["save_card","add_to_brief"].includes(a.type) && !pid){ toast("Open a project first, then tap it again."); return; }
+  const str = v=>String(v||"").slice(0,600);
+  let msg = "Done.";
+  if(a.type==="split_step"){
+    const parts=(Array.isArray(a.parts)?a.parts:[]).map(str).filter(Boolean).slice(0,6); if(parts.length<2){ toast("That split didn't have enough parts."); return; }
+    const k0=job.steps.indexOf(cur); const each=Math.max(5, Math.round((+cur.minutes||15)/parts.length));
+    const repl=parts.map(t=>({title:t, stage:cur.stage, tag:cur.tag, tool:cur.tool, minutes:each, fidelity:cur.fidelity, goodEnough:"", why:"Split from “"+cur.title+"” to make it easier to start.", prompt:"", check:[]}));
+    repl[0].output=cur.output||"";
+    job.steps.splice(k0,1,...repl); if(job.pin!=null) job.pin=null;
+    putJob(job); msg=`Split into ${parts.length} steps.`;
+  } else if(a.type==="add_step"){
+    const stage = SPINE_IDX[a.stage]!=null ? a.stage : cur.stage;
+    const tool = a.tool && toolByName(a.tool) ? toolByName(a.tool).name : "None";
+    const ns={title:str(a.title)||"New step", stage, tag:["you","ai","together"].includes(a.tag)?a.tag:"you", tool, minutes:Math.max(5,Math.min(180,parseInt(a.minutes,10)||15)), fidelity:"mid", goodEnough:str(a.goodEnough), why:"Suggested by Claude.", prompt:str(a.prompt), check:[]};
+    job.steps.splice(job.steps.indexOf(cur)+1,0,ns);
+    if(job.family){ const pinned=job.pin!=null?job.steps[job.pin]:null; job.steps=sortByStage(job.steps); job.pin=pinned?job.steps.indexOf(pinned):null; }
+    putJob(job); msg="Step added.";
+  } else if(a.type==="edit_step"){
+    const f=a.field;
+    if(!["title","goodEnough","prompt","minutes","tool","tag"].includes(f)){ toast("Claude suggested a change the Lab can't make."); return; }
+    if(f==="minutes") cur.minutes=Math.max(5,Math.min(180,parseInt(a.value,10)||cur.minutes));
+    else if(f==="tool"){ const t=toolByName(a.value); cur.tool = t?t.name:(a.value==="None"?"None":cur.tool); }
+    else if(f==="tag"){ if(["you","ai","together"].includes(a.value)) cur.tag=a.value; }
+    else cur[f]=str(a.value);
+    putJob(job); msg="Step updated.";
+  } else if(a.type==="add_note"){
+    cur.output = (cur.output?cur.output+"\n":"") + str(a.text); putJob(job); msg="Note added to the step.";
+  } else if(a.type==="park"){
+    addPark(str(a.text)||"Parked from chat", job&&!job.example?job.id:null, true); msg="Parked.";
+  } else if(a.type==="save_card"){
+    const section=["inspiration","brief","brand"].includes(a.section)?a.section:"inspiration";
+    putCard({id:uid(), projectId:pid, jobId:job&&!job.example?job.id:null, section, tags:[], kind:"note", title:str(a.title)||"From Claude", note:str(a.text), status:"exploring", heart:false, stars:0, notes:[], createdAt:Date.now(), by:S.me}, true);
+    msg=`Saved to ${SECTION_NAME[section]}.`;
+  } else if(a.type==="add_to_brief"){
+    const p=projById(pid); p.brief=(p.brief?p.brief+"\n\n":"")+str(a.text); p.briefAt=Date.now(); putProject(p); msg="Added to the brief.";
+  }
+  a.done=true; saveThread(); renderChat(); render(); toast(msg);
+}
+
+/* keep the panel in step with the screen */
+window.addEventListener("hashchange", ()=>{ if(S.chat.open){ const k=chatScope().key; if(k!==S.chat.key) chatSub(k); renderChat(); } });
+document.addEventListener("keydown", e=>{ const pnl=document.getElementById("chatPanel"); if(e.key==="Escape" && S.chat.open && pnl && pnl.contains(document.activeElement)){ toggleChat(false); } });
+setTimeout(()=>chatShell(), 0);
 
 boot();
 </script>
