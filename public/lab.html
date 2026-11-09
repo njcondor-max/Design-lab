@@ -261,6 +261,8 @@ body.chat-open #chatPanel{display:flex}
 .msg.bot{align-self:flex-start;background:var(--paper);border:1px solid var(--line);border-bottom-left-radius:4px}
 .chat-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .chat-tools{margin-top:6px}
+.done-chip{display:inline-flex;gap:6px;align-items:center;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--good)}
+.done-chip.warn{background:var(--you-bg);color:var(--warn);font-weight:400;border-radius:10px}
 .linkbtn{border:0;background:none;padding:0;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline}
 .chat-input{border-top:1px solid var(--line);padding:12px 16px;display:flex;flex-direction:column;gap:8px}
 .chat-input textarea{min-height:56px;max-height:180px;background:var(--paper)}
@@ -1972,7 +1974,11 @@ Your job: answer her question clearly and briefly, using the context below, then
 - Never invent facts about the client. Say what you don't know.
 - If she shares an image, look at it and give specific, senior-level feedback measured against the brief, kit and current step.
 
-You can offer actions as buttons. Only offer an action when it clearly helps, at most 3. After your answer, if you offer actions, end with a fenced block exactly like this:
+You can change things in the Lab with actions.
+- When Jenna directly asks you to make a change the Lab can make (for example "split this step", "add that to the brief", "change the bar on this step", "swap that sentence in my brief"), do it: include the action with "auto": true, and describe it in your answer in the past tense ("Done: I split it into three steps."). Don't ask permission first.
+- When she asks for words or ideas (for example "give me another version of this sentence"), just write them in your answer; that is doing it. If the sentence lives in her brief, the step's prompt or her notes and she asked you to change it there, use replace_text with "auto": true. If she didn't ask, you may offer replace_text as a button (no "auto").
+- When you have an idea she didn't ask for, offer it as a button (leave out "auto").
+- At most 3 actions per reply. After your answer, if there are actions, end with a fenced block exactly like this:
 \`\`\`actions
 [{"type":"...","label":"short button text", ...fields}]
 \`\`\`
@@ -1984,6 +1990,8 @@ Action types (use only these, and only when the needed context exists):
 - {"type":"park","label":"","text":""}  parks a thought for later
 - {"type":"save_card","label":"","section":"inspiration|brief|brand","title":"","text":""}  saves a text card to the project
 - {"type":"add_to_brief","label":"","text":""}  appends to the project's client brief
+- {"type":"replace_text","label":"","target":"brief|step_prompt|step_notes|step_good_enough","find":"exact existing text","replace":"new text"}  swaps text in place; "find" must be copied exactly from the context
+Add "auto": true to any action she asked for.
 Never include the actions block unless you are offering at least one action.`;
 
 /* ---------- storage ---------- */
@@ -2054,7 +2062,10 @@ function renderChat(){
         <div class="stack" style="gap:6px;margin-top:8px">${(cur?["What does good enough look like for this step?","I'm stuck, what's the smallest next move?","Which tool should I use for this?"]:["What should I work on next?","How do I start a new project here?"]).map(q=>`<button class="tagchip chat-suggest" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div></div>`:""}
       ${msgs.map((m,i)=>m.role==="user"
         ? `<div class="msg me">${(m.images||[]).map(id=>`<img src="/_blob/${esc(id)}" alt="Attached image">`).join("")}${mdLite(m.text||"")}</div>`
-        : `<div class="msg bot">${mdLite(m.text||"")}${(m.actions||[]).length?`<div class="chat-actions">${m.actions.map((a,k)=>`<button class="btn small ${a.done?"":"primary"}" data-act-msg="${i}" data-act-k="${k}" ${a.done?"disabled":""}>${a.done?"✓ ":""}${esc(a.label||a.type)}</button>`).join("")}</div>`:""}
+        : `<div class="msg bot">${mdLite(m.text||"")}${(m.actions||[]).length?`<div class="chat-actions">${m.actions.map((a,k)=>{
+              if(a.done) return `<span class="done-chip">✓ ${esc(a.label||a.type)}${S.chat.undo[i+":"+k]?` <button class="linkbtn" data-undo-msg="${i}" data-undo-k="${k}">Undo</button>`:""}</span>`;
+              if(a.failed) return `<span class="done-chip warn">Couldn't do “${esc(a.label||a.type)}”: ${esc(a.failed)} <button class="linkbtn" data-act-msg="${i}" data-act-k="${k}">Try again</button></span>`;
+              return `<button class="btn small primary" data-act-msg="${i}" data-act-k="${k}">${a.undone?"Redo: ":""}${esc(a.label||a.type)}</button>`; }).join("")}</div>`:""}
             ${m.text?`<div class="chat-tools"><button class="linkbtn" data-park-msg="${i}">Park this</button></div>`:""}</div>`).join("")}
       ${S.chat.sending?`<div class="msg bot" id="chatStream">${S.chat.streamText?mdLite(splitActions(S.chat.streamText).body):`<span class="spin"></span>`}</div>`:""}
     </div>
@@ -2085,7 +2096,8 @@ function wireChat(){
   panel.ondragover=e=>{ e.preventDefault(); }; panel.ondrop=e=>{ e.preventDefault(); attachImages([...e.dataTransfer.files].filter(f=>/^image\//.test(f.type))); };
   panel.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>sendChat(b.dataset.q));
   panel.querySelectorAll("[data-unatt]").forEach(b=>b.onclick=()=>{ S.chat.images.splice(+b.dataset.unatt,1); renderChat(); });
-  panel.querySelectorAll("[data-act-msg]").forEach(b=>b.onclick=()=>runAction(+b.dataset.actMsg, +b.dataset.actK));
+  panel.querySelectorAll("[data-act-msg]").forEach(b=>b.onclick=()=>{ const m=S.chat.thread.messages[+b.dataset.actMsg]; const a=m.actions[+b.dataset.actK]; delete a.failed; runAction(+b.dataset.actMsg, +b.dataset.actK); });
+  panel.querySelectorAll("[data-undo-msg]").forEach(b=>b.onclick=()=>undoAction(+b.dataset.undoMsg, +b.dataset.undoK));
   panel.querySelectorAll("[data-park-msg]").forEach(b=>b.onclick=()=>{ const m=S.chat.thread.messages[+b.dataset.parkMsg]; const {job}=chatScope(); addPark("From Claude: "+(m.text||"").split("\n")[0].slice(0,140), job&&!job.example?job.id:null, true); toast("Parked."); });
   const ta=g("chatText"); if(ta && !S.chat.sending) ta.focus();
 }
@@ -2141,23 +2153,31 @@ async function sendChat(text){
   const {body, actions} = splitActions(reply);
   S.chat.thread.messages.push({role:"assistant", text: body || "(no answer)", actions, at:Date.now()});
   S.chat.sending=false; S.chat.streamText="";
-  saveThread(); renderChat();
+  const mi = S.chat.thread.messages.length-1; let ran=0;
+  actions.forEach((a,k)=>{ if(a.auto===true){ a.auto=false; if(runAction(mi,k,true)) ran++; } });
+  saveThread(); renderChat(); if(ran){ render(); toast(ran===1?"Claude made that change.":`Claude made ${ran} changes.`); }
 }
 
 /* ---------- doing what the buttons say ---------- */
-const ACTION_TYPES = ["split_step","add_step","edit_step","add_note","park","save_card","add_to_brief"];
-function runAction(mi, k){
-  const m = S.chat.thread.messages[mi]; const a = m && m.actions && m.actions[k]; if(!a || a.done) return;
+const ACTION_TYPES = ["split_step","add_step","edit_step","add_note","park","save_card","add_to_brief","replace_text"];
+S.chat.undo = {};
+function runAction(mi, k, auto){
+  const m = S.chat.thread.messages[mi]; const a = m && m.actions && m.actions[k]; if(!a || a.done) return false;
   const {job, pid} = chatScope();
   const cur = job ? curStep(job) : null;
   const needStep = ["split_step","add_step","edit_step","add_note"].includes(a.type);
-  if(needStep && (!job || !cur)){ toast("Open the plan or the step this is about, then tap it again."); return; }
-  if(needStep && job.example){ toast("Press “Use this plan” first so changes can be saved."); return; }
-  if(["save_card","add_to_brief"].includes(a.type) && !pid){ toast("Open a project first, then tap it again."); return; }
+  const stepTarget = a.type==="replace_text" && String(a.target||"").startsWith("step_");
+  const fail = msg=>{ if(auto){ a.failed=msg; } else toast(msg); return false; };
+  if((needStep||stepTarget) && (!job || !cur)) return fail("Open the plan or the step this is about, then tap it again.");
+  if((needStep||stepTarget) && job.example) return fail("Press “Use this plan” first so changes can be saved.");
+  if((["save_card","add_to_brief"].includes(a.type) || (a.type==="replace_text" && a.target==="brief")) && !pid) return fail("Open a project first, then tap it again.");
+  const key = mi+":"+k;
+  if(needStep||stepTarget) S.chat.undo[key]={kind:"job", snap:clone(job)};
+  else if(a.type==="add_to_brief"||(a.type==="replace_text"&&a.target==="brief")) S.chat.undo[key]={kind:"project", snap:clone(projById(pid))};
   const str = v=>String(v||"").slice(0,600);
   let msg = "Done.";
   if(a.type==="split_step"){
-    const parts=(Array.isArray(a.parts)?a.parts:[]).map(str).filter(Boolean).slice(0,6); if(parts.length<2){ toast("That split didn't have enough parts."); return; }
+    const parts=(Array.isArray(a.parts)?a.parts:[]).map(str).filter(Boolean).slice(0,6); if(parts.length<2) return fail("That split didn't have enough parts.");
     const k0=job.steps.indexOf(cur); const each=Math.max(5, Math.round((+cur.minutes||15)/parts.length));
     const repl=parts.map(t=>({title:t, stage:cur.stage, tag:cur.tag, tool:cur.tool, minutes:each, fidelity:cur.fidelity, goodEnough:"", why:"Split from “"+cur.title+"” to make it easier to start.", prompt:"", check:[]}));
     repl[0].output=cur.output||"";
@@ -2172,7 +2192,7 @@ function runAction(mi, k){
     putJob(job); msg="Step added.";
   } else if(a.type==="edit_step"){
     const f=a.field;
-    if(!["title","goodEnough","prompt","minutes","tool","tag"].includes(f)){ toast("Claude suggested a change the Lab can't make."); return; }
+    if(!["title","goodEnough","prompt","minutes","tool","tag"].includes(f)) return fail("Claude suggested a change the Lab can't make.");
     if(f==="minutes") cur.minutes=Math.max(5,Math.min(180,parseInt(a.value,10)||cur.minutes));
     else if(f==="tool"){ const t=toolByName(a.value); cur.tool = t?t.name:(a.value==="None"?"None":cur.tool); }
     else if(f==="tag"){ if(["you","ai","together"].includes(a.value)) cur.tag=a.value; }
@@ -2181,15 +2201,35 @@ function runAction(mi, k){
   } else if(a.type==="add_note"){
     cur.output = (cur.output?cur.output+"\n":"") + str(a.text); putJob(job); msg="Note added to the step.";
   } else if(a.type==="park"){
-    addPark(str(a.text)||"Parked from chat", job&&!job.example?job.id:null, true); msg="Parked.";
+    addPark(str(a.text)||"Parked from chat", job&&!job.example?job.id:null, true); S.chat.undo[key]={kind:"park", id:S.parking[0]&&S.parking[0].id}; msg="Parked.";
   } else if(a.type==="save_card"){
     const section=["inspiration","brief","brand"].includes(a.section)?a.section:"inspiration";
-    putCard({id:uid(), projectId:pid, jobId:job&&!job.example?job.id:null, section, tags:[], kind:"note", title:str(a.title)||"From Claude", note:str(a.text), status:"exploring", heart:false, stars:0, notes:[], createdAt:Date.now(), by:S.me}, true);
+    const cid=uid(); putCard({id:cid, projectId:pid, jobId:job&&!job.example?job.id:null, section, tags:[], kind:"note", title:str(a.title)||"From Claude", note:str(a.text), status:"exploring", heart:false, stars:0, notes:[], createdAt:Date.now(), by:S.me}, true); S.chat.undo[key]={kind:"card", id:cid};
     msg=`Saved to ${SECTION_NAME[section]}.`;
+  } else if(a.type==="replace_text"){
+    const find=String(a.find||""), repl=String(a.replace||"").slice(0,4000);
+    const fields={step_prompt:[cur,"prompt"], step_notes:[cur,"output"], step_good_enough:[cur,"goodEnough"], brief:[projById(pid),"brief"]};
+    const t=fields[a.target]; if(!t || !t[0]) return fail("Claude pointed at text the Lab can't change.");
+    const [obj,field]=t; const before=String(obj[field]||"");
+    if(!find || !before.includes(find)) return fail("Couldn't find that exact text to swap. Copy it from the chat instead.");
+    obj[field]=before.replace(find, repl);
+    if(a.target==="brief"){ obj.briefAt=Date.now(); putProject(obj); } else putJob(job);
+    msg="Text swapped.";
   } else if(a.type==="add_to_brief"){
     const p=projById(pid); p.brief=(p.brief?p.brief+"\n\n":"")+str(a.text); p.briefAt=Date.now(); putProject(p); msg="Added to the brief.";
   }
-  a.done=true; saveThread(); renderChat(); render(); toast(msg);
+  a.done=true; if(auto) a.auto=true;
+  if(!auto){ saveThread(); renderChat(); render(); toast(msg); }
+  return true;
+}
+function undoAction(mi, k){
+  const m=S.chat.thread.messages[mi]; const a=m&&m.actions&&m.actions[k]; const u=S.chat.undo[mi+":"+k]; if(!a||!u) return;
+  if(u.kind==="job") putJob(u.snap);
+  else if(u.kind==="project"){ putProject(u.snap); }
+  else if(u.kind==="park"){ const pk=S.parking.find(x=>x.id===u.id); if(pk){ pk.done=true; pk.trashedAt=Date.now(); const {id,...body}=pk; save("parking/"+id, body); S.parking=S.parking.filter(x=>x.id!==u.id); } }
+  else if(u.kind==="card"){ const c=S.cards.find(x=>x.id===u.id); if(c){ c.trashedAt=Date.now(); putCard(c,true); S.cards=S.cards.filter(x=>x.id!==u.id); } }
+  delete S.chat.undo[mi+":"+k]; a.done=false; a.undone=true; a.auto=false;
+  saveThread(); renderChat(); render(); toast("Undone.");
 }
 
 /* keep the panel in step with the screen */
