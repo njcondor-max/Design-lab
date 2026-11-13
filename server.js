@@ -55,7 +55,8 @@ const USERS = {
   demo: { name: "Demo", role: "demo", space: "demo", pw: process.env.DEMO_PASSWORD },
 };
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword", "text/plain", "text/markdown"];
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword", "text/plain", "text/markdown",
+  "application/octet-stream"]; // any other file (feedback attachments): stored as-is, only ever served as a download
 
 const secret = SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 if (!SESSION_SECRET) console.warn("SESSION_SECRET is not set: logins reset whenever the server restarts.");
@@ -251,7 +252,7 @@ app.get("/_blob/:id", async (req, res) => {
     if (!fs.existsSync(f)) return res.status(404).end();
     res.set("Content-Type", a.type); res.set("Cache-Control", "private, max-age=31536000, immutable");
     if (a.type === "application/pdf" || a.type.startsWith("image/")) res.set("Content-Disposition", "inline");
-    else res.set("Content-Disposition", "attachment");
+    else { const nm = String(req.query.name || "").replace(/[^\w .()\-]/g, "_").slice(0, 120); res.set("Content-Disposition", nm ? `attachment; filename="${nm}"` : "attachment"); }
     fs.createReadStream(f).pipe(res);
   } catch (e) { res.status(503).end(); }
 });
@@ -348,6 +349,7 @@ function localParts(d = new Date()) {
 const fmtTime = (t) => new Date(t).toLocaleString("en-US", { timeZone: FEEDBACK_TZ, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const KIND_LABEL = { broken: "Something's broken", confusing: "Confusing", idea: "Idea", love: "Love it" };
 let sending = false;
+const GMAIL_BLOCKED = new Set("ade adp apk appx appxbundle bat cab chm cmd com cpl diagcab diagcfg diagpack dll dmg ex ex_ exe hta img ins iso isp jar jnlp js jse lib lnk mde mjs msc msi msix msixbundle msp mst nsh pif ps1 scr sct shb sys vb vbe vbs vhd vxd wsc wsf wsh xll zip rar 7z gz tgz tar bz2 xz".split(" "));
 async function sendFeedbackDigest(opts = {}) {
   if (sending) return { sent: 0, note: "already sending" };
   const t = getMailer(); if (!t) return { sent: 0, note: "Email isn't set up (SMTP_USER / SMTP_PASS)." };
@@ -367,15 +369,28 @@ async function sendFeedbackDigest(opts = {}) {
       attachments.push({ filename: `note-${i + 1}-screenshot-${k}.png`, path: f, cid, contentDisposition: "inline" });
       return { cid, link };
     };
+    const fileOut = (p, i) => {
+      const f = assetPath(p.file); const name = String(p.name || "file").replace(/[\r\n"]/g, "_").slice(0, 200);
+      const link = `${PUBLIC_URL}/_blob/${encodeURIComponent(p.file)}?name=${encodeURIComponent(name)}`;
+      if (!p.file || !fs.existsSync(f)) return { fileName: name, missing: true };
+      const size = fs.statSync(f).size;
+      /* Gmail refuses a whole email that carries these (or an archive that might hold them): send a link instead */
+      const ext = (name.split(".").pop() || "").toLowerCase();
+      if (size > budget || GMAIL_BLOCKED.has(ext)) return { fileName: name, size, link, big: true };
+      budget -= size; attachments.push({ filename: name, path: f });
+      return { fileName: name, size, link, attached: true };
+    };
+    const kb = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB");
     const items = rows.map((r, i) => {
       const d = r.data; const where = [d.screen, d.project, d.task, d.step ? `step “${d.step}”` : ""].filter(Boolean).join(" · ");
       let pieces = Array.isArray(d.body) && d.body.length ? d.body : [{ t: String(d.text || "") }, ...(d.image ? [{ img: d.image, n: 1 }] : [])];
       let k = 0;
-      pieces = pieces.map((p) => { if (!p || !p.img) return { t: String((p && p.t) || "") }; k++; return { n: p.n || k, ...(shot(p.img, i, k) || { missing: true }) }; });
+      pieces = pieces.map((p) => { if (p && p.file) return fileOut(p, i); if (!p || !p.img) return { t: String((p && p.t) || "") }; k++; return { n: p.n || k, ...(shot(p.img, i, k) || { missing: true }) }; });
       return { n: i + 1, who: d.byName || d.by || "Someone", kind: KIND_LABEL[d.kind] || "Note", when: fmtTime(d.at || Date.now()), where, pieces };
     });
-    const pieceText = (p) => ("t" in p ? p.t : `\n[screenshot ${p.n}${p.link ? ": " + p.link : ""}]\n`);
+    const pieceText = (p) => (p.fileName ? `\n[file: ${p.fileName}${p.attached ? " (attached)" : p.link ? " " + p.link : " (missing)"}]\n` : "t" in p ? p.t : `\n[screenshot ${p.n}${p.link ? ": " + p.link : ""}]\n`);
     const pieceHtml = (p) => {
+      if (p.fileName) return `<div style="margin:10px 0;font-size:14px">📎 <b>${esc(p.fileName)}</b>${p.size ? ` <span style="color:#5E6470">${kb(p.size)}</span>` : ""} ${p.attached ? `<span style="color:#5E6470">(attached to this email)</span>` : p.link ? `<a href="${esc(p.link)}">Download from the Lab</a> <span style="color:#5E6470">(too big or not allowed as an email attachment)</span>` : `<span style="color:#5E6470">(missing)</span>`}</div>`;
       if ("t" in p) return p.t ? `<div style="white-space:pre-wrap;margin:6px 0">${esc(p.t)}</div>` : "";
       if (p.cid) return `<div style="margin:10px 0"><a href="${esc(p.link)}"><img src="cid:${p.cid}" alt="Screenshot ${p.n}" style="display:block;max-width:100%;height:auto;border:1px solid #DADDD5;border-radius:8px"></a></div>`;
       if (p.link) return `<div style="margin:10px 0;font-size:13px"><a href="${esc(p.link)}">Open screenshot ${p.n}</a> (too big to include in the email)</div>`;

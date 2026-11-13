@@ -411,7 +411,7 @@
   var db = Object.freeze({ doc: docRef, collection: collRef });
 
   /* ---------------- image uploads ---------------- */
-  var ASSET_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword", "text/plain", "text/markdown"];
+  var ASSET_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword", "text/plain", "text/markdown", "application/octet-stream"];
   var assets = Object.freeze({
     upload: function (blob, opts) {
       if (!(blob instanceof Blob) || !blob.size) return Promise.reject(fail("invalid_request", "upload needs a non-empty Blob"));
