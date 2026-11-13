@@ -32,6 +32,7 @@ const LAB_LABEL = process.env.LAB_LABEL || ""; // e.g. "Preview" on the test cop
 /* Nightly feedback email (Google Workspace SMTP with an app password) */
 const SMTP_USER = process.env.SMTP_USER || "";            // the sending mailbox, e.g. nathan@desmithstudio.com
 const SMTP_PASS = process.env.SMTP_PASS || "";            // a Google app password for that mailbox
+const PUBLIC_URL = (process.env.PUBLIC_URL || "https://iloveyou.njc-labs.com").replace(/\/$/, "");
 const FEEDBACK_TO = process.env.FEEDBACK_TO || "nathan@desmithstudio.com";
 const FEEDBACK_REPLY_TO = process.env.FEEDBACK_REPLY_TO || "Jay@desmithstudio.com";
 const FEEDBACK_HOUR = Number(process.env.FEEDBACK_HOUR || 21); // local hour to send
@@ -354,14 +355,34 @@ async function sendFeedbackDigest(opts = {}) {
   try {
     const rows = (await store.list("main", "feedback")).filter((r) => r.data && !r.data.sentAt && !r.data.trashedAt).sort((a, b) => (a.data.at || 0) - (b.data.at || 0));
     if (!rows.length) return { sent: 0, note: "No new feedback." };
-    const attachments = [];
+    /* screenshots sit inline in each note (cid images), the way she wrote it.
+       Past ~18 MB of pictures the rest become links into the Lab, to stay under Gmail's limit. */
+    const attachments = []; let budget = 18 * 1024 * 1024;
+    const assetPath = (id) => path.join(DATA_DIR, "assets", "main", String(id).replace(/[^a-f0-9]/g, ""));
+    const shot = (id, i, k) => {
+      const f = assetPath(id); if (!id || !fs.existsSync(f)) return null;
+      const size = fs.statSync(f).size; const link = `${PUBLIC_URL}/_blob/${encodeURIComponent(id)}`;
+      if (size > budget) return { link };
+      budget -= size; const cid = `fb${i + 1}-${k}@designlab`;
+      attachments.push({ filename: `note-${i + 1}-screenshot-${k}.png`, path: f, cid, contentDisposition: "inline" });
+      return { cid, link };
+    };
     const items = rows.map((r, i) => {
       const d = r.data; const where = [d.screen, d.project, d.task, d.step ? `step “${d.step}”` : ""].filter(Boolean).join(" · ");
-      if (d.image) { const a = path.join(DATA_DIR, "assets", "main", String(d.image).replace(/[^a-f0-9]/g, "")); if (fs.existsSync(a)) attachments.push({ filename: `feedback-${i + 1}.png`, path: a }); }
-      return { n: i + 1, who: d.byName || d.by || "Someone", kind: KIND_LABEL[d.kind] || "Note", when: fmtTime(d.at || Date.now()), where, text: String(d.text || ""), hasImg: !!d.image };
+      let pieces = Array.isArray(d.body) && d.body.length ? d.body : [{ t: String(d.text || "") }, ...(d.image ? [{ img: d.image, n: 1 }] : [])];
+      let k = 0;
+      pieces = pieces.map((p) => { if (!p || !p.img) return { t: String((p && p.t) || "") }; k++; return { n: p.n || k, ...(shot(p.img, i, k) || { missing: true }) }; });
+      return { n: i + 1, who: d.byName || d.by || "Someone", kind: KIND_LABEL[d.kind] || "Note", when: fmtTime(d.at || Date.now()), where, pieces };
     });
-    const textBody = items.map((x) => `${x.n}. ${x.kind} from ${x.who} (${x.when})\nWhere: ${x.where || "-"}\n${x.text}${x.hasImg ? "\n[screenshot attached]" : ""}`).join("\n\n");
-    const htmlBody = `<div style="font:15px/1.5 -apple-system,Segoe UI,sans-serif;color:#16181D;max-width:640px"><h2 style="margin:0 0 4px">Design Lab feedback</h2><p style="color:#5E6470;margin:0 0 18px">${items.length} new note${items.length === 1 ? "" : "s"}. Reply to answer Jenna directly.</p>${items.map((x) => `<div style="border:1px solid #DADDD5;border-radius:12px;padding:14px 16px;margin:0 0 12px"><div style="font-size:13px;color:#5E6470"><b style="color:#2F4BFF">${esc(x.kind)}</b> · ${esc(x.who)} · ${esc(x.when)}</div>${x.where ? `<div style="font-size:13px;color:#5E6470">Where: ${esc(x.where)}</div>` : ""}<p style="margin:8px 0 0;white-space:pre-wrap">${esc(x.text)}</p>${x.hasImg ? `<p style="font-size:13px;color:#5E6470;margin:6px 0 0">Screenshot attached (feedback-${x.n}.png)</p>` : ""}</div>`).join("")}</div>`;
+    const pieceText = (p) => ("t" in p ? p.t : `\n[screenshot ${p.n}${p.link ? ": " + p.link : ""}]\n`);
+    const pieceHtml = (p) => {
+      if ("t" in p) return p.t ? `<div style="white-space:pre-wrap;margin:6px 0">${esc(p.t)}</div>` : "";
+      if (p.cid) return `<div style="margin:10px 0"><a href="${esc(p.link)}"><img src="cid:${p.cid}" alt="Screenshot ${p.n}" style="display:block;max-width:100%;height:auto;border:1px solid #DADDD5;border-radius:8px"></a></div>`;
+      if (p.link) return `<div style="margin:10px 0;font-size:13px"><a href="${esc(p.link)}">Open screenshot ${p.n}</a> (too big to include in the email)</div>`;
+      return `<div style="margin:10px 0;font-size:13px;color:#5E6470">[screenshot ${p.n} is missing]</div>`;
+    };
+    const textBody = items.map((x) => `${x.n}. ${x.kind} from ${x.who} (${x.when})\nWhere: ${x.where || "-"}\n${x.pieces.map(pieceText).join("").replace(/\n{3,}/g, "\n\n").trim()}`).join("\n\n");
+    const htmlBody = `<div style="font:15px/1.5 -apple-system,Segoe UI,sans-serif;color:#16181D;max-width:680px"><h2 style="margin:0 0 4px">Design Lab feedback</h2><p style="color:#5E6470;margin:0 0 18px">${items.length} new note${items.length === 1 ? "" : "s"}. Reply to answer Jenna directly.</p>${items.map((x) => `<div style="border:1px solid #DADDD5;border-radius:12px;padding:14px 16px;margin:0 0 12px"><div style="font-size:13px;color:#5E6470"><b style="color:#2F4BFF">${esc(x.kind)}</b> · ${esc(x.who)} · ${esc(x.when)}</div>${x.where ? `<div style="font-size:13px;color:#5E6470">Where: ${esc(x.where)}</div>` : ""}<div style="margin-top:6px">${x.pieces.map(pieceHtml).join("")}</div></div>`).join("")}</div>`;
     await t.sendMail({ from: `"Design Lab" <${SMTP_USER}>`, to: FEEDBACK_TO, replyTo: FEEDBACK_REPLY_TO, subject: `Design Lab feedback: ${items.length} new note${items.length === 1 ? "" : "s"} (${localParts().day})`, text: textBody, html: htmlBody, attachments });
     const now = Date.now();
     for (const r of rows) await store.put("main", r.path, "feedback", { ...r.data, sentAt: now });

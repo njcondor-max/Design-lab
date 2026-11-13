@@ -80,6 +80,11 @@ label{font-weight:700;font-size:14px;display:block;margin-bottom:6px}
 .hint{font-weight:400;color:var(--muted)}
 input[type=text],textarea,select{width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line);background:var(--paper)}
 textarea{resize:vertical;min-height:80px}
+.fb-editor{min-height:150px;max-height:52vh;overflow:auto;padding:11px 13px;border-radius:10px;border:1px solid var(--line);background:var(--paper);white-space:pre-wrap;word-break:break-word;outline:none;font-size:15px;line-height:1.5}
+.fb-editor:focus{border-color:var(--ink)}
+.fb-editor.empty:before{content:attr(data-ph);color:var(--muted,#8a8f98);pointer-events:none}
+.fb-editor img.fb-shot{display:block;max-width:100%;max-height:240px;border-radius:8px;border:1px solid var(--line);margin:6px 0;cursor:pointer}
+.fb-editor img.fb-shot:focus,.fb-editor img.fb-shot::selection{outline:2px solid var(--ink)}
 .task-input{display:flex;gap:10px;flex-wrap:wrap}
 .task-input input{flex:1 1 320px;font-size:18px;padding:15px 16px;background:var(--card)}
 .tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap}
@@ -2253,31 +2258,110 @@ function feedbackContext(){
   if(job){ out.task=job.title; const c=curStep(job); if(c && r.v==="focus") out.step=c.title; out.jobId=job.example?null:job.id; }
   out.hash=location.hash.slice(1); return out;
 }
-let fbImage=null;
+/* the note is a little editor: screenshots sit in the text where she pastes them */
+const FB_MAX_SHOTS = 12;
+let fbShots = new Map(); /* object URL -> File */
+function fbInsertImage(ed, file){
+  if(!file || !/^image\//.test(file.type)) return;
+  if(fbShots.size >= FB_MAX_SHOTS){ toast(`Up to ${FB_MAX_SHOTS} screenshots per note.`); return; }
+  const url = URL.createObjectURL(file); fbShots.set(url, file);
+  const img = document.createElement("img"); img.src = url; img.className = "fb-shot"; img.alt = "Screenshot";
+  const sel = window.getSelection(); let range = null;
+  if(sel.rangeCount && ed.contains(sel.getRangeAt(0).commonAncestorContainer)) range = sel.getRangeAt(0);
+  else if(ed._lastRange) range = ed._lastRange;
+  if(!range){ range = document.createRange(); range.selectNodeContents(ed); range.collapse(false); }
+  range.deleteContents();
+  /* own line, with a line after it to keep typing */
+  const frag = document.createDocumentFragment(); const after = document.createElement("br");
+  frag.append(document.createElement("br"), img, after); range.insertNode(frag);
+  const r2 = document.createRange(); r2.setStartAfter(after); r2.collapse(true);
+  sel.removeAllRanges(); sel.addRange(r2); ed._lastRange = r2.cloneRange();
+  ed.classList.remove("empty"); ed.focus(); fbCount(ed);
+}
+function fbCount(ed){
+  const n = ed.querySelectorAll("img.fb-shot").length; const el = document.getElementById("fbImgNote");
+  if(el) el.textContent = n ? `${n} screenshot${n===1?"":"s"} in your note · click one and press Delete to remove it` : "or paste them right into your note, where they belong";
+}
+/* the editor's contents as text pieces and screenshots, in order */
+function fbParts(ed){
+  const parts = []; const push = t=>{ if(!t) return; const last = parts[parts.length-1]; if(last && "t" in last) last.t += t; else parts.push({t}); };
+  const block = /^(DIV|P|LI|H[1-6]|BLOCKQUOTE|PRE)$/;
+  const walk = node=>{
+    for(const n of node.childNodes){
+      if(n.nodeType === 3) push(n.nodeValue);
+      else if(n.nodeName === "BR") push("\n");
+      else if(n.nodeName === "IMG"){ if(n.classList.contains("fb-shot") && fbShots.has(n.src)) parts.push({file:fbShots.get(n.src)}); }
+      else if(n.nodeType === 1){
+        const isBlock = block.test(n.nodeName);
+        if(isBlock){ const last = parts[parts.length-1]; if(last && "t" in last && last.t && !last.t.endsWith("\n")) push("\n"); }
+        walk(n);
+        if(isBlock) push("\n");
+      }
+    }
+  };
+  walk(ed);
+  /* tidy: no stray blank lines around screenshots or at the ends */
+  const out = parts.map(p=>"t" in p ? {t:p.t.replace(/ /g," ").replace(/\n{3,}/g,"\n\n")} : p);
+  out.forEach((p,i)=>{ if(!("t" in p)) return; if(i>0 && !("t" in out[i-1])) p.t = p.t.replace(/^\n+/,""); if(i<out.length-1 && !("t" in out[i+1])) p.t = p.t.replace(/\n+$/,""); });
+  if(out.length && "t" in out[0]) out[0].t = out[0].t.replace(/^\s+/,"");
+  if(out.length && "t" in out[out.length-1]) out[out.length-1].t = out[out.length-1].t.replace(/\s+$/,"");
+  return out.filter(p=>!("t" in p) || p.t);
+}
 function openFeedback(){
-  fbImage=null; const ctx=feedbackContext();
+  for(const u of fbShots.keys()) URL.revokeObjectURL(u); fbShots = new Map();
+  const ctx=feedbackContext();
   modal(`<h2>Feedback for Nathan</h2><p class="muted" style="font-size:14px">Anything broken, confusing, missing, or that you love. He gets it by email tonight.</p>
     <div class="rate" id="fbKinds">${[["broken","Something's broken"],["confusing","Confusing"],["idea","Idea"],["love","Love it"]].map(([k,l])=>`<button type="button" class="btn small" data-fbk="${k}">${l}</button>`).join("")}</div>
-    <div><label for="fbText">What happened, or what would help?</label><textarea id="fbText" style="min-height:120px" placeholder="e.g. When I paste a brief, it doesn't show up on the Brief tab"></textarea></div>
-    <div class="row" style="gap:8px"><button type="button" class="btn small" id="fbAttach">Add a screenshot</button><input type="file" id="fbFile" accept="image/png,image/jpeg,image/webp" style="display:none"><span class="muted" style="font-size:13px" id="fbImgNote">or paste one</span></div>
+    <div><label id="fbLabel">What happened, or what would help?</label><div id="fbText" class="fb-editor empty" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="fbLabel" data-ph="e.g. Can you change this [paste a screenshot] to look more like this [paste another]?"></div></div>
+    <div class="row" style="gap:8px"><button type="button" class="btn small" id="fbAttach">Add screenshots</button><input type="file" id="fbFile" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none"><span class="muted" style="font-size:13px" id="fbImgNote"></span></div>
     <p class="muted" style="font-size:12px">Sent with: ${esc([ctx.screen, ctx.project, ctx.step?`step “${ctx.step}”`:""].filter(Boolean).join(" · "))}</p>
-    <div class="row"><button class="btn primary" id="fbSend">Send</button><button class="btn ghost" id="fbCancel">Cancel</button></div>`, {fbCancel:closeLayer});
+    <div class="row"><button class="btn primary" id="fbSend">Send</button><button class="btn ghost" id="fbCancel">Cancel</button></div>`, {fbCancel:()=>{ S.addPaste=null; closeLayer(); }});
   let kind="idea"; const kinds=document.querySelectorAll("[data-fbk]");
   const pick=k=>{ kind=k; kinds.forEach(b=>b.classList.toggle("on",b.dataset.fbk===k)); }; pick("idea");
   kinds.forEach(b=>b.onclick=()=>pick(b.dataset.fbk));
-  const setImg=f=>{ if(!f||!/^image\//.test(f.type)) return; fbImage=f; $("#fbImgNote").textContent="Screenshot added: "+(f.name||"pasted image"); };
-  $("#fbAttach").onclick=()=>$("#fbFile").click(); $("#fbFile").onchange=()=>setImg($("#fbFile").files[0]);
-  S.addPaste = fs=>setImg(fs[0]);
-  $("#fbText").focus();
+  const ed=$("#fbText"); fbCount(ed);
+  const keepRange=()=>{ const sel=window.getSelection(); if(sel.rangeCount && ed.contains(sel.getRangeAt(0).commonAncestorContainer)) ed._lastRange=sel.getRangeAt(0).cloneRange(); };
+  ["keyup","mouseup","input","blur"].forEach(ev=>ed.addEventListener(ev, keepRange));
+  ed.addEventListener("input", ()=>{ ed.classList.toggle("empty", !ed.textContent.trim() && !ed.querySelector("img")); fbCount(ed); });
+  ed.addEventListener("paste", e=>{
+    e.stopPropagation(); e.preventDefault();
+    const files=[...(e.clipboardData&&e.clipboardData.files||[])].filter(f=>/^image\//.test(f.type));
+    if(files.length){ files.forEach(f=>fbInsertImage(ed,f)); return; }
+    const txt=e.clipboardData.getData("text/plain"); if(txt) document.execCommand("insertText", false, txt);
+  });
+  ed.addEventListener("dragover", e=>{ if([...(e.dataTransfer.items||[])].some(i=>i.kind==="file")) e.preventDefault(); });
+  ed.addEventListener("drop", e=>{
+    const files=[...(e.dataTransfer.files||[])].filter(f=>/^image\//.test(f.type)); if(!files.length) return;
+    e.preventDefault(); e.stopPropagation();
+    const pos = document.caretRangeFromPoint ? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
+    if(pos && ed.contains(pos.startContainer)){ ed._lastRange = pos; const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(pos); }
+    files.forEach(f=>fbInsertImage(ed,f));
+  });
+  $("#fbAttach").onmousedown=e=>e.preventDefault(); /* keep her place in the text */
+  $("#fbAttach").onclick=()=>{ keepRange(); $("#fbFile").click(); };
+  $("#fbFile").onchange=()=>{ [...$("#fbFile").files].forEach(f=>fbInsertImage(ed,f)); $("#fbFile").value=""; };
+  S.addPaste = fs=>fs.forEach(f=>fbInsertImage(ed,f)); /* pasted while not in the text box: goes where she left off */
+  ed.focus();
   $("#fbSend").onclick=async()=>{
-    const text=$("#fbText").value.trim(); if(!text && !fbImage){ $("#fbText").focus(); return; }
-    const btn=$("#fbSend"); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Sending…';
-    const me=await myRole(); let image=null;
-    if(fbImage){ try{ const st=await storeFile(fbImage, fbImage.type); image=st.id||null; }catch(e){} }
-    const id=uid(); const doc={text:text.slice(0,5000), kind, ...ctx, image, by:me?me.id:S.me, byName:me?me.name:"", at:Date.now()};
+    const parts=fbParts(ed);
+    if(!parts.length){ ed.focus(); return; }
+    const btn=$("#fbSend"); btn.disabled=true;
+    const shots=parts.filter(p=>p.file).length;
+    btn.innerHTML=`<span class="spin"></span> ${shots?`Uploading ${shots} screenshot${shots===1?"":"s"}…`:"Sending…"}`;
+    const me=await myRole();
+    const body=[]; const images=[]; let n=0, failed=0;
+    for(const p of parts){
+      if("t" in p){ body.push({t:p.t.slice(0,5000)}); continue; }
+      let id=null; try{ const st=await storeFile(p.file, p.file.type); id=st.id||null; }catch(e){}
+      if(id){ images.push(id); n++; body.push({img:id, n}); } else { failed++; body.push({t:"[a screenshot that couldn't be uploaded]"}); }
+    }
+    /* plain-text version too, for older readers of this record */
+    const text=body.map(b=>b.img?`[screenshot ${b.n}]`:b.t).join(" ").replace(/ ?\n ?/g,"\n").trim().slice(0,8000);
+    const id=uid(); const doc={text, body, images, kind, ...ctx, image:images[0]||null, by:me?me.id:S.me, byName:me?me.name:"", at:Date.now()};
     S.feedback=[{id,...doc}, ...(S.feedback||[])];
     await save("feedback/"+id, doc);
-    S.addPaste=null; closeLayer(); toast("Thanks! Nathan gets it tonight.");
+    for(const u of fbShots.keys()) URL.revokeObjectURL(u); fbShots=new Map();
+    S.addPaste=null; closeLayer(); toast(failed?`Sent, but ${failed} screenshot${failed===1?"":"s"} couldn't be uploaded.`:"Thanks! Nathan gets it tonight.");
     if(view().v==="settings") render();
   };
 }
