@@ -351,11 +351,13 @@ const KIND_LABEL = { broken: "Something's broken", confusing: "Confusing", idea:
 let sending = false;
 const GMAIL_BLOCKED = new Set("ade adp apk appx appxbundle bat cab chm cmd com cpl diagcab diagcfg diagpack dll dmg ex ex_ exe hta img ins iso isp jar jnlp js jse lib lnk mde mjs msc msi msix msixbundle msp mst nsh pif ps1 scr sct shb sys vb vbe vbs vhd vxd wsc wsf wsh xll zip rar 7z gz tgz tar bz2 xz".split(" "));
 async function sendFeedbackDigest(opts = {}) {
+  if (sending && opts.ids) { await new Promise((r) => setTimeout(r, 4000)); } /* a "send now" waits out a digest already going */
   if (sending) return { sent: 0, note: "already sending" };
   const t = getMailer(); if (!t) return { sent: 0, note: "Email isn't set up (SMTP_USER / SMTP_PASS)." };
   sending = true;
   try {
-    const rows = (await store.list("main", "feedback")).filter((r) => r.data && !r.data.sentAt && !r.data.trashedAt).sort((a, b) => (a.data.at || 0) - (b.data.at || 0));
+    let rows = (await store.list("main", "feedback")).filter((r) => r.data && !r.data.sentAt && !r.data.trashedAt).sort((a, b) => (a.data.at || 0) - (b.data.at || 0));
+    if (opts.ids) rows = rows.filter((r) => opts.ids.includes(String(r.path).split("/").pop()));
     if (!rows.length) return { sent: 0, note: "No new feedback." };
     /* screenshots sit inline in each note (cid images), the way she wrote it.
        Past ~18 MB of pictures the rest become links into the Lab, to stay under Gmail's limit. */
@@ -398,7 +400,7 @@ async function sendFeedbackDigest(opts = {}) {
     };
     const textBody = items.map((x) => `${x.n}. ${x.kind} from ${x.who} (${x.when})\nWhere: ${x.where || "-"}\n${x.pieces.map(pieceText).join("").replace(/\n{3,}/g, "\n\n").trim()}`).join("\n\n");
     const htmlBody = `<div style="font:15px/1.5 -apple-system,Segoe UI,sans-serif;color:#16181D;max-width:680px"><h2 style="margin:0 0 4px">Design Lab feedback</h2><p style="color:#5E6470;margin:0 0 18px">${items.length} new note${items.length === 1 ? "" : "s"}. Reply to answer Jenna directly.</p>${items.map((x) => `<div style="border:1px solid #DADDD5;border-radius:12px;padding:14px 16px;margin:0 0 12px"><div style="font-size:13px;color:#5E6470"><b style="color:#2F4BFF">${esc(x.kind)}</b> · ${esc(x.who)} · ${esc(x.when)}</div>${x.where ? `<div style="font-size:13px;color:#5E6470">Where: ${esc(x.where)}</div>` : ""}<div style="margin-top:6px">${x.pieces.map(pieceHtml).join("")}</div></div>`).join("")}</div>`;
-    await t.sendMail({ from: `"Design Lab" <${SMTP_USER}>`, to: FEEDBACK_TO, replyTo: FEEDBACK_REPLY_TO, subject: `Design Lab feedback: ${items.length} new note${items.length === 1 ? "" : "s"} (${localParts().day})`, text: textBody, html: htmlBody, attachments });
+    await t.sendMail({ from: `"Design Lab" <${SMTP_USER}>`, to: FEEDBACK_TO, replyTo: FEEDBACK_REPLY_TO, subject: opts.ids && items.length === 1 ? `Design Lab feedback (sent now): ${items[0].kind} from ${items[0].who}` : `Design Lab feedback: ${items.length} new note${items.length === 1 ? "" : "s"} (${localParts().day})`, text: textBody, html: htmlBody, attachments });
     const now = Date.now();
     for (const r of rows) await store.put("main", r.path, "feedback", { ...r.data, sentAt: now });
     return { sent: rows.length };
@@ -433,6 +435,19 @@ app.get("/admin/export", needOwner, async (req, res) => {
   res.json({ exportedAt: new Date().toISOString(), space, docs: rows });
 });
 app.post("/admin/reset-demo", needOwner, async (req, res) => { await store.wipe("demo"); res.redirect("/admin?reset=1"); });
+/* "Send now" from the feedback box: emails just that note, right away. A daily limit keeps a stuck button from flooding the inbox. */
+const sendNowCount = { day: "", n: 0 };
+app.post("/api/feedback/send-now", needUser, express.json({ limit: "4kb" }), async (req, res) => {
+  if (req.user.role === "demo" || req.user.space !== "main") return res.status(403).json({ code: "forbidden", message: "Not available here." });
+  const id = String((req.body && req.body.id) || ""); if (!/^[\w-]{1,80}$/.test(id)) return res.status(400).json({ code: "invalid_request", message: "bad id" });
+  const day = localParts().day; if (sendNowCount.day !== day) { sendNowCount.day = day; sendNowCount.n = 0; }
+  if (sendNowCount.n >= 40) return res.status(429).json({ code: "rate_limited", message: "Lots sent today already; this one goes out tonight." });
+  sendNowCount.n++;
+  const r = await sendFeedbackDigest({ ids: [id] });
+  if (r.sent) return res.json({ ok: true, sent: r.sent });
+  console.warn("[feedback] send-now:", r.note);
+  res.status(502).json({ code: "not_sent", message: r.note || "Not sent." });
+});
 app.post("/admin/feedback-send", needOwner, async (req, res) => { const r = await sendFeedbackDigest(); res.redirect("/admin?fb=" + encodeURIComponent(r.sent ? `Sent ${r.sent} note(s).` : r.note || "Nothing sent.")); });
 
 /* ---------- pages ---------- */

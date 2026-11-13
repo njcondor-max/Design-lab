@@ -1933,7 +1933,7 @@ function settingsView(){
     <div class="jobs">
       <a class="card job" href="#guide"><h3>Tool guide</h3><p class="muted" style="font-size:14px">Which tool for which job, and how each tool has done for you.</p></a>
       <a class="card job" href="#playbooks"><h3>Playbooks</h3><p class="muted" style="font-size:14px">The stage order and “good enough” bars for each kind of work.</p></a>
-      <a class="card job" href="#" onclick="openFeedback();return false"><h3>Send feedback</h3><p class="muted" style="font-size:14px">Tell Nathan what's broken, confusing or missing. He gets it by email each night.</p></a>
+      <a class="card job" href="#" onclick="openFeedback();return false"><h3>Send feedback</h3><p class="muted" style="font-size:14px">Tell Nathan what's broken, confusing or missing. Send it now, or add it to the 9 pm email.</p></a>
       <a class="card job" href="#parking"><h3>Parking lot</h3><p class="muted" style="font-size:14px">Everything you've parked, ${S.parking.filter(p=>!p.done).length} open.</p></a>
     </div>
     ${(S.feedback||[]).length?`<div class="card stack" style="gap:8px"><h3>Your feedback</h3>${S.feedback.slice(0,20).map(f=>`<div class="row" style="gap:10px;align-items:flex-start;border-top:1px solid var(--line);padding-top:8px"><span class="chip">${esc(({broken:"Broken",confusing:"Confusing",idea:"Idea",love:"Love it"})[f.kind]||"Note")}</span><span style="flex:1;font-size:14px">${esc(f.text||"(screenshot)")}</span><span class="muted" style="font-size:12px;white-space:nowrap">${f.sentAt?"Sent "+new Date(f.sentAt).toLocaleDateString():"Goes out tonight"}</span></div>`).join("")}</div>`:""}
@@ -2357,12 +2357,12 @@ function fbParts(ed){
 function openFeedback(){
   for(const u of fbShots.keys()) URL.revokeObjectURL(u); fbShots = new Map();
   const ctx=feedbackContext();
-  modal(`<h2>Feedback for Nathan</h2><p class="muted" style="font-size:14px">Anything broken, confusing, missing, or that you love. He gets it by email tonight.</p>
+  modal(`<h2>Feedback for Nathan</h2><p class="muted" style="font-size:14px">Anything broken, confusing, missing, or that you love. Add it to tonight's 9 pm email, or send it to him now.</p>
     <div class="rate" id="fbKinds">${[["broken","Something's broken"],["confusing","Confusing"],["idea","Idea"],["love","Love it"]].map(([k,l])=>`<button type="button" class="btn small" data-fbk="${k}">${l}</button>`).join("")}</div>
     <div><label id="fbLabel">What happened, or what would help?</label><div id="fbText" class="fb-editor empty" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="fbLabel" data-ph="e.g. Can you change this [paste a screenshot] to look more like this [paste another]?"></div></div>
     <div class="row" style="gap:8px"><button type="button" class="btn small" id="fbAttach">📎 Attach files</button><input type="file" id="fbFile" multiple style="display:none"><span class="muted" style="font-size:13px" id="fbImgNote"></span></div>
     <p class="muted" style="font-size:12px">Sent with: ${esc([ctx.screen, ctx.project, ctx.step?`step “${ctx.step}”`:""].filter(Boolean).join(" · "))}</p>
-    <div class="row"><button class="btn primary" id="fbSend">Send</button><button class="btn ghost" id="fbCancel">Cancel</button></div>`, {fbCancel:()=>{ S.addPaste=null; closeLayer(); }});
+    <div class="row"><button class="btn" id="fbAdd" title="Goes out with tonight's 9 pm email">Add to tonight's email</button><button class="btn primary" id="fbSend" title="Emails Nathan right away">Send now</button><span class="spacer"></span><button class="btn ghost" id="fbCancel">Cancel</button></div>`, {fbCancel:()=>{ S.addPaste=null; closeLayer(); }});
   let kind="idea"; const kinds=document.querySelectorAll("[data-fbk]");
   const pick=k=>{ kind=k; kinds.forEach(b=>b.classList.toggle("on",b.dataset.fbk===k)); }; pick("idea");
   kinds.forEach(b=>b.onclick=()=>pick(b.dataset.fbk));
@@ -2389,10 +2389,10 @@ function openFeedback(){
   $("#fbFile").onchange=()=>{ [...$("#fbFile").files].forEach(f=>fbInsertImage(ed,f)); $("#fbFile").value=""; };
   S.addPaste = fs=>fs.forEach(f=>fbInsertImage(ed,f)); /* pasted while not in the text box: goes where she left off */
   ed.focus();
-  $("#fbSend").onclick=async()=>{
+  const submit=async(now)=>{
     const parts=fbParts(ed);
     if(!parts.length){ ed.focus(); return; }
-    const btn=$("#fbSend"); btn.disabled=true;
+    const btn=$(now?"#fbSend":"#fbAdd"); btn.disabled=true; $(now?"#fbAdd":"#fbSend").disabled=true;
     const shots=parts.filter(p=>p.file).length;
     btn.innerHTML=`<span class="spin"></span> ${shots?`Uploading ${shots} attachment${shots===1?"":"s"}…`:"Sending…"}`;
     const me=await myRole();
@@ -2411,9 +2411,20 @@ function openFeedback(){
     S.feedback=[{id,...doc}, ...(S.feedback||[])];
     await save("feedback/"+id, doc);
     for(const u of fbShots.keys()) URL.revokeObjectURL(u); fbShots=new Map();
-    S.addPaste=null; closeLayer(); toast(failed?`Sent, but ${failed} attachment${failed===1?"":"s"} couldn't be uploaded.`:"Thanks! Nathan gets it tonight.");
+    let sentNow=false, why="";
+    if(now){
+      btn.innerHTML=`<span class="spin"></span> Emailing Nathan…`;
+      try{ const r=await fetch("/api/feedback/send-now",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify({id})});
+        if(r.ok){ sentNow=true; const f=S.feedback.find(x=>x.id===id); if(f) f.sentAt=Date.now(); } else { why=(await r.json().catch(()=>({}))).message||""; } }catch(e){}
+    }
+    const lost = failed?` (${failed} attachment${failed===1?"":"s"} couldn't be uploaded)`:"";
+    S.addPaste=null; closeLayer();
+    toast(now ? (sentNow ? `Sent to Nathan${lost}.` : `Couldn't email it right now, so it'll go out in tonight's email instead${lost}.`) : `Added to tonight's email${lost}.`);
+    if(now && !sentNow && why) console.warn("send now:", why);
     if(view().v==="settings") render();
   };
+  $("#fbSend").onclick=()=>submit(true);
+  $("#fbAdd").onclick=()=>submit(false);
 }
 window.openFeedback = openFeedback;
 
