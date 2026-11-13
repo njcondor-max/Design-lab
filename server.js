@@ -170,7 +170,7 @@ app.get("/api/me", needUser, (req, res) => res.json({ id: req.user.id, name: req
 /* ---------- the Lab page ---------- */
 const LAB = fs.readFileSync(path.join(__dirname, "public", "lab.html"), "utf8");
 function labHtml(u) {
-  const bar = `<div id="dl-userbar" style="position:fixed;left:12px;bottom:12px;z-index:30;font:13px system-ui,sans-serif;background:${LAB_LABEL ? "#B4500F" : "rgba(22,24,29,.88)"};color:#fff;border-radius:999px;padding:6px 12px;display:flex;gap:10px;align-items:center">${LAB_LABEL ? `<b>${esc(LAB_LABEL)} copy: test data only</b> · ` : ""}${u.name}${u.role === "demo" ? " (demo)" : ""}${u.role !== "demo" ? ' · <a href="#" onclick="openFeedback();return false" style="color:#9fb0ff">Feedback</a>' : ""}${u.role === "owner" ? ' · <a href="/admin" style="color:#9fb0ff">Admin</a>' : ""} · <a href="/logout" style="color:#9fb0ff">Sign out</a></div>`;
+  const bar = `<div id="dl-userbar" style="position:fixed;left:12px;bottom:12px;z-index:30;font:13px system-ui,sans-serif;background:${LAB_LABEL ? "#B4500F" : "rgba(22,24,29,.88)"};color:#fff;border-radius:999px;padding:6px 12px;display:flex;gap:10px;align-items:center">${LAB_LABEL ? `<b>${esc(LAB_LABEL)} copy: test data only</b> · ` : ""}${u.name}${u.role === "demo" ? " (demo)" : ""}${u.role === "owner" ? ' · <a href="/admin" style="color:#9fb0ff">Admin</a>' : ""} · <a href="/logout" style="color:#9fb0ff">Sign out</a></div>`;
   return LAB.replace("<head>", `<head>\n<script src="/runtime.js?v=${BUILD}" data-app="design-lab"></script>`).replace("</body>", bar + "</body>");
 }
 const BUILD = crypto.createHash("sha1").update(LAB + fs.readFileSync(path.join(__dirname, "public", "runtime.js"))).digest("hex").slice(0, 8);

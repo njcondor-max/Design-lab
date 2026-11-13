@@ -65,6 +65,12 @@ nav.links a.on{color:var(--ink);background:var(--card);box-shadow:0 0 0 1px var(
 .btn.small{padding:6px 10px;font-size:13px;border-radius:8px}
 .btn[disabled]{opacity:.5;cursor:not-allowed}
 .park-btn{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.fb-btn{background:transparent}
+.fb-btn[hidden]{display:none}
+.timerbar{position:sticky;top:60px;z-index:4;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;margin:0 0 14px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(8px)}
+.timerbar.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.timerbar .timer{min-width:90px}
+@media (max-width:640px){.fb-btn .lbl{display:none}}
 .park-btn b{background:var(--paper);color:var(--ink);border-radius:999px;padding:0 7px;font-size:12px;min-width:20px;text-align:center}
 main{padding:28px 0 80px}
 .stack{display:flex;flex-direction:column;gap:16px}
@@ -287,6 +293,7 @@ body.chat-open #chatPanel{display:flex}
     </nav>
     <span class="spacer"></span>
     <span class="status" id="saveStatus"></span>
+    <button class="btn fb-btn" id="fbBtn" type="button" title="Tell Nathan what's broken, confusing or missing" hidden>✎ <span class="lbl">Feedback</span></button>
     <button class="btn park-btn" id="parkBtn" type="button" title="Park a thought for later (P)">Park it <b id="parkCount">0</b></button>
   </div>
 </header>
@@ -445,7 +452,7 @@ function putJob(job, noRender){
 async function boot(){
   render();
   S.curHash = location.hash.slice(1);
-  window.addEventListener("hashchange", ()=>{ S.lastHash=S.curHash; S.curHash=location.hash.slice(1); S.addPaste=null; flushClock(true); stopTimer(); S.editing=null; closeLayer(); render(); window.scrollTo(0,0); });
+  window.addEventListener("hashchange", ()=>{ S.lastHash=S.curHash; S.curHash=location.hash.slice(1); S.addPaste=null; flushClock(true); keepTimerFor(view()); S.editing=null; closeLayer(); render(); window.scrollTo(0,0); });
   document.addEventListener("visibilitychange", ()=>{ if(document.hidden) flushClock(false); else if(S.clock) S.clock.since=Date.now(); });
   const c = window.claude;
   if(!c || !c.use){ S.local=true; S.loaded.jobs=true; setStatus(); render(); return; }
@@ -670,6 +677,7 @@ function jobView(id){
     </li>`;
   });
   return `<div class="stack" style="gap:22px">
+    ${S.timer && S.timer.jobId===j.id ? `<div>${timerBar(j, false)}</div>` : ""}
     <a href="#home" class="btn ghost small" style="align-self:flex-start">← Today</a>
     ${j.example?`<div class="banner">This is an example plan. Try it freely; nothing is saved until you press “Use this plan”.</div>`:""}
     <div class="row" style="align-items:flex-end">
@@ -734,6 +742,7 @@ function focusView(id){
   const kitOn = j.projectId && s.tag!=="you" && (kitOf(j.projectId)||{}).status==="locked";
   const needKit = s.stage==="direction" && j.projectId && !kitReady(kitOf(j.projectId));
   return `<div class="focuswrap"><div class="focus">
+    ${timerBar(j, true)}
     <div class="row" style="margin-bottom:14px"><a href="#job-${j.id}" class="btn ghost small">← Full plan</a>${hasPrev?`<button class="btn small" data-act="prevStep">← Previous step</button>`:""}<span class="spacer"></span><span class="muted" style="font-size:14px">${esc(j.title)}</span></div>
     ${j.family?`<div style="margin-bottom:14px">${spineBar(j)}</div>`:`<div class="bar" style="margin-bottom:18px"><i style="width:${Math.round(live.filter(x=>x.status).length/live.length*100)}%"></i></div>`}
     ${j.pin!=null && s===j.steps[j.pin] && firstOpen(j)!==s?`<div class="banner" style="margin-bottom:14px">You jumped ahead. After this step the Lab takes you back to <b>${esc(firstOpen(j).title)}</b>.</div>`:""}
@@ -749,7 +758,6 @@ function focusView(id){
       ${s.check&&s.check.length?`<div class="stack" style="gap:6px"><span class="eyebrow">Check before you accept it</span>${s.check.map((c,k)=>`<label style="font-weight:400;display:flex;gap:8px;align-items:flex-start;margin:0"><input type="checkbox" id="chk-${k}" style="margin-top:4px">${esc(c)}</label>`).join("")}</div>`:""}
       ${s.tag!=="you"?`<div><button class="btn small" data-act="fixOpen">Not right? Get a fix-up prompt</button><div id="fixOut"></div></div>`:""}
       <div><label for="f-out">Notes or result <span class="hint">paste what the tool gave you, or a link</span></label><textarea id="f-out" placeholder="Optional">${esc(s.output||"")}</textarea></div>
-      <div class="row"><button class="btn" data-act="timer" id="timerBtn">Start ${+s.minutes||25}-min timer</button><span class="timer" id="timerOut" aria-live="polite"></span></div>
       <div class="actions">
         <button class="btn primary big" data-act="done">It's good enough, next</button>
         <button class="btn big" data-act="stuck">I'm stuck</button>
@@ -1174,15 +1182,41 @@ async function pickTool(q){
 }
 
 /* ================= timer: ends with the bar, not just a beep ================= */
-function toggleTimer(j, minutes){
-  if(S.timer && minutes==null){ stopTimer(); $("#timerBtn").textContent="Start timer again"; $("#timerOut").textContent=""; return; }
-  stopTimer();
-  const s=curStep(j); let left=(minutes||+s.minutes||25)*60; const btn=$("#timerBtn"), out=$("#timerOut"); btn.textContent="Stop timer";
-  const tick=()=>{ const el=document.getElementById("timerOut"); if(!el){ stopTimer(); return; }
-    const m=Math.floor(left/60), sec=left%60; el.textContent=`${m}:${String(sec).padStart(2,"0")} left`;
-    if(left<=0){ stopTimer(); el.textContent="Time's up"; timeUp(j); return; } left--; };
-  tick(); S.timer=setInterval(tick,1000);
+/* The timer lives in a bar pinned to the top of the plan, so it stays in view while she scrolls,
+   and keeps running when she flips between focus mode and the full plan of the same task. */
+function fmtLeft(sec){ sec=Math.max(0,sec); return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`; }
+function timerLeft(){ return S.timer ? Math.round((S.timer.endsAt-Date.now())/1000) : 0; }
+function timerBar(j, inFocus){
+  const t = S.timer && S.timer.jobId===j.id ? S.timer : null;
+  const s = curStep(j);
+  if(t){
+    const st = j.steps[t.stepIdx];
+    return `<div class="timerbar on" data-tb role="timer"><span class="eyebrow">Timer</span><span class="timer timerOut" aria-live="off">${fmtLeft(timerLeft())} left</span>
+      <span class="muted" style="font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">on “${esc(st?st.title:"")}”</span>
+      ${inFocus?"":`<a class="btn small" href="#focus-${j.id}">Back to the step</a>`}
+      <button class="btn small" data-act="timer">Stop timer</button></div>`;
+  }
+  if(!inFocus || !s) return "";
+  return `<div class="timerbar" data-tb><span class="eyebrow">Timer</span><span class="muted" style="font-size:14px;flex:1">~${+s.minutes||25} min for this step</span>
+    <button class="btn small primary" data-act="timer">Start ${+s.minutes||25}-min timer</button></div>`;
 }
+/* swap the bar in place, so notes and ticked checks on the step aren't wiped */
+function refreshTimerBar(j){ const r=view(); const inFocus=r.v==="focus"; document.querySelectorAll("[data-tb]").forEach(el=>{ const h=timerBar(j,inFocus); if(h){ el.insertAdjacentHTML("afterend",h); } el.remove(); }); }
+function paintTimer(){ const txt=`${fmtLeft(timerLeft())} left`; document.querySelectorAll(".timerOut").forEach(el=>el.textContent=txt); }
+function toggleTimer(j, minutes){
+  if(S.timer && minutes==null){ stopTimer(); refreshTimerBar(j); return; }
+  stopTimer();
+  const s=curStep(j); if(!s) return;
+  const secs=(minutes||+s.minutes||25)*60;
+  S.timer={jobId:j.id, stepIdx:j.steps.indexOf(s), endsAt:Date.now()+secs*1000, iv:null};
+  S.timer.iv=setInterval(()=>{
+    if(!S.timer) return;
+    if(timerLeft()<=0){ const jj=getJob(S.timer.jobId)||j; stopTimer(); refreshTimerBar(jj); if(view().v!=="focus") go("focus-"+jj.id); setTimeout(()=>timeUp(getJob(jj.id)||jj),50); return; }
+    paintTimer();
+  },1000);
+  refreshTimerBar(j);
+}
+function keepTimerFor(r){ if(S.timer && !((r.v==="focus"||r.v==="job") && r.id===S.timer.jobId)) stopTimer(); }
 function timeUp(j){
   const s=curStep(j); if(!s) return;
   modal(`<span class="eyebrow">Time's up</span><h2>Does it meet the bar?</h2>
@@ -1195,7 +1229,7 @@ function timeUp(j){
      tMore:()=>{ closeLayer(); s.extended=true; toggleTimer(j,10); },
      tPark:()=>{ closeLayer(); addPark("Leftover from “"+s.title+"”", j.example?null:j.id, true); finishStep(j,"done"); }});
 }
-function stopTimer(){ if(S.timer){ clearInterval(S.timer); S.timer=null; } }
+function stopTimer(){ if(S.timer){ clearInterval(S.timer.iv); S.timer=null; } }
 
 /* ================= parking ================= */
 function addPark(text, jobId, quiet){
@@ -1215,6 +1249,8 @@ function openPark(){
   $("#parkForm").onsubmit=e=>{ e.preventDefault(); const v=$("#parkInput").value.trim(); if(v) addPark(v, jobId); closeLayer(); };
 }
 $("#parkBtn").onclick=openPark;
+$("#fbBtn").onclick=()=>openFeedback();
+myRole().then(m=>{ if(m && m.role!=="demo") $("#fbBtn").hidden=false; });
 document.addEventListener("keydown", e=>{
   if(e.key==="Escape"){ closeLayer(); return; }
   const tag=(e.target.tagName||"").toLowerCase();
