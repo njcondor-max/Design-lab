@@ -29,6 +29,13 @@ const MONTHLY_CAP_USD = Number(process.env.MONTHLY_CAP_USD || 20);
 const DEMO_DAILY_AI = Number(process.env.DEMO_DAILY_AI || 25);
 const IMAGE_QUOTA_MB = Number(process.env.IMAGE_QUOTA_MB || 900);
 const LAB_LABEL = process.env.LAB_LABEL || ""; // e.g. "Preview" on the test copy
+/* Nightly feedback email (Google Workspace SMTP with an app password) */
+const SMTP_USER = process.env.SMTP_USER || "";            // the sending mailbox, e.g. nathan@desmithstudio.com
+const SMTP_PASS = process.env.SMTP_PASS || "";            // a Google app password for that mailbox
+const FEEDBACK_TO = process.env.FEEDBACK_TO || "nathan@desmithstudio.com";
+const FEEDBACK_REPLY_TO = process.env.FEEDBACK_REPLY_TO || "Jay@desmithstudio.com";
+const FEEDBACK_HOUR = Number(process.env.FEEDBACK_HOUR || 21); // local hour to send
+const FEEDBACK_TZ = process.env.FEEDBACK_TZ || "America/Los_Angeles";
 const MODELS = {
   quick: process.env.MODEL_QUICK || "claude-haiku-5-5",
   default: process.env.MODEL_DEFAULT || "claude-sonnet-5-5",
@@ -162,7 +169,7 @@ app.get("/api/me", needUser, (req, res) => res.json({ id: req.user.id, name: req
 /* ---------- the Lab page ---------- */
 const LAB = fs.readFileSync(path.join(__dirname, "public", "lab.html"), "utf8");
 function labHtml(u) {
-  const bar = `<div id="dl-userbar" style="position:fixed;left:12px;bottom:12px;z-index:30;font:13px system-ui,sans-serif;background:${LAB_LABEL ? "#B4500F" : "rgba(22,24,29,.88)"};color:#fff;border-radius:999px;padding:6px 12px;display:flex;gap:10px;align-items:center">${LAB_LABEL ? `<b>${esc(LAB_LABEL)} copy: test data only</b> · ` : ""}${u.name}${u.role === "demo" ? " (demo)" : ""}${u.role === "owner" ? ' · <a href="/admin" style="color:#9fb0ff">Admin</a>' : ""} · <a href="/logout" style="color:#9fb0ff">Sign out</a></div>`;
+  const bar = `<div id="dl-userbar" style="position:fixed;left:12px;bottom:12px;z-index:30;font:13px system-ui,sans-serif;background:${LAB_LABEL ? "#B4500F" : "rgba(22,24,29,.88)"};color:#fff;border-radius:999px;padding:6px 12px;display:flex;gap:10px;align-items:center">${LAB_LABEL ? `<b>${esc(LAB_LABEL)} copy: test data only</b> · ` : ""}${u.name}${u.role === "demo" ? " (demo)" : ""}${u.role !== "demo" ? ' · <a href="#" onclick="openFeedback();return false" style="color:#9fb0ff">Feedback</a>' : ""}${u.role === "owner" ? ' · <a href="/admin" style="color:#9fb0ff">Admin</a>' : ""} · <a href="/logout" style="color:#9fb0ff">Sign out</a></div>`;
   return LAB.replace("<head>", `<head>\n<script src="/runtime.js?v=${BUILD}" data-app="design-lab"></script>`).replace("</body>", bar + "</body>");
 }
 const BUILD = crypto.createHash("sha1").update(LAB + fs.readFileSync(path.join(__dirname, "public", "runtime.js"))).digest("hex").slice(0, 8);
@@ -321,10 +328,67 @@ app.post("/api/sample", needUser, express.json({ limit: "40mb" }), async (req, r
   res.end();
 });
 
+/* ---------- nightly feedback email ---------- */
+let mailer = null;
+function getMailer() {
+  if (!SMTP_USER || !SMTP_PASS) return null;
+  if (!mailer) {
+    const host = process.env.SMTP_HOST || "smtp.gmail.com"; // override only for local testing
+    const port = Number(process.env.SMTP_PORT || 465);
+    mailer = require("nodemailer").createTransport({ host, port, secure: port === 465, auth: process.env.SMTP_HOST ? undefined : { user: SMTP_USER, pass: SMTP_PASS }, tls: process.env.SMTP_HOST ? { rejectUnauthorized: false } : undefined });
+  }
+  return mailer;
+}
+function localParts(d = new Date()) {
+  const f = new Intl.DateTimeFormat("en-CA", { timeZone: FEEDBACK_TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false }).formatToParts(d);
+  const g = (t) => f.find((x) => x.type === t).value;
+  return { day: `${g("year")}-${g("month")}-${g("day")}`, hour: Number(g("hour")) % 24 };
+}
+const fmtTime = (t) => new Date(t).toLocaleString("en-US", { timeZone: FEEDBACK_TZ, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const KIND_LABEL = { broken: "Something's broken", confusing: "Confusing", idea: "Idea", love: "Love it" };
+let sending = false;
+async function sendFeedbackDigest(opts = {}) {
+  if (sending) return { sent: 0, note: "already sending" };
+  const t = getMailer(); if (!t) return { sent: 0, note: "Email isn't set up (SMTP_USER / SMTP_PASS)." };
+  sending = true;
+  try {
+    const rows = (await store.list("main", "feedback")).filter((r) => r.data && !r.data.sentAt && !r.data.trashedAt).sort((a, b) => (a.data.at || 0) - (b.data.at || 0));
+    if (!rows.length) return { sent: 0, note: "No new feedback." };
+    const attachments = [];
+    const items = rows.map((r, i) => {
+      const d = r.data; const where = [d.screen, d.project, d.task, d.step ? `step “${d.step}”` : ""].filter(Boolean).join(" · ");
+      if (d.image) { const a = path.join(DATA_DIR, "assets", "main", String(d.image).replace(/[^a-f0-9]/g, "")); if (fs.existsSync(a)) attachments.push({ filename: `feedback-${i + 1}.png`, path: a }); }
+      return { n: i + 1, who: d.byName || d.by || "Someone", kind: KIND_LABEL[d.kind] || "Note", when: fmtTime(d.at || Date.now()), where, text: String(d.text || ""), hasImg: !!d.image };
+    });
+    const textBody = items.map((x) => `${x.n}. ${x.kind} from ${x.who} (${x.when})\nWhere: ${x.where || "-"}\n${x.text}${x.hasImg ? "\n[screenshot attached]" : ""}`).join("\n\n");
+    const htmlBody = `<div style="font:15px/1.5 -apple-system,Segoe UI,sans-serif;color:#16181D;max-width:640px"><h2 style="margin:0 0 4px">Design Lab feedback</h2><p style="color:#5E6470;margin:0 0 18px">${items.length} new note${items.length === 1 ? "" : "s"}. Reply to answer Jenna directly.</p>${items.map((x) => `<div style="border:1px solid #DADDD5;border-radius:12px;padding:14px 16px;margin:0 0 12px"><div style="font-size:13px;color:#5E6470"><b style="color:#2F4BFF">${esc(x.kind)}</b> · ${esc(x.who)} · ${esc(x.when)}</div>${x.where ? `<div style="font-size:13px;color:#5E6470">Where: ${esc(x.where)}</div>` : ""}<p style="margin:8px 0 0;white-space:pre-wrap">${esc(x.text)}</p>${x.hasImg ? `<p style="font-size:13px;color:#5E6470;margin:6px 0 0">Screenshot attached (feedback-${x.n}.png)</p>` : ""}</div>`).join("")}</div>`;
+    await t.sendMail({ from: `"Design Lab" <${SMTP_USER}>`, to: FEEDBACK_TO, replyTo: FEEDBACK_REPLY_TO, subject: `Design Lab feedback: ${items.length} new note${items.length === 1 ? "" : "s"} (${localParts().day})`, text: textBody, html: htmlBody, attachments });
+    const now = Date.now();
+    for (const r of rows) await store.put("main", r.path, "feedback", { ...r.data, sentAt: now });
+    return { sent: rows.length };
+  } catch (e) { console.error("[feedback] send failed:", e.message); return { sent: 0, note: "Send failed: " + e.message }; }
+  finally { sending = false; }
+}
+async function feedbackTick() {
+  try {
+    if (!getMailer()) return;
+    const { day, hour } = localParts();
+    if (hour < FEEDBACK_HOUR) return;
+    const mark = await store.get("main", "lab/feedback-mail");
+    if (mark && mark.data && mark.data.day === day) return;
+    const r = await sendFeedbackDigest();
+    if (r.note && r.note.startsWith("Send failed")) return; // try again next tick
+    await store.put("main", "lab/feedback-mail", "lab", { day, at: Date.now(), sent: r.sent || 0 });
+    if (r.sent) console.log(`[feedback] emailed ${r.sent} note(s) for ${day}`);
+  } catch (e) { console.error("[feedback] tick", e.message); }
+}
+
 /* ---------- owner admin ---------- */
 app.get("/admin", needOwner, async (req, res) => {
   const [u, a, c] = await Promise.all([store.getUsage(month()), store.assetBytes(), store.counts()]).catch(() => [{ usd: 0, calls: 0 }, { bytes: 0, files: 0 }, []]);
-  res.type("html").send(adminPage({ u, a, c }));
+  let fb = { pending: 0, last: null };
+  try { const rows = await store.list("main", "feedback"); fb.pending = rows.filter((r) => r.data && !r.data.sentAt && !r.data.trashedAt).length; const m = await store.get("main", "lab/feedback-mail"); fb.last = m && m.data; } catch {}
+  res.type("html").send(adminPage({ u, a, c, fb, flash: req.query.fb }));
 });
 app.get("/admin/export", needOwner, async (req, res) => {
   const space = req.query.space === "demo" ? "demo" : "main";
@@ -333,6 +397,7 @@ app.get("/admin/export", needOwner, async (req, res) => {
   res.json({ exportedAt: new Date().toISOString(), space, docs: rows });
 });
 app.post("/admin/reset-demo", needOwner, async (req, res) => { await store.wipe("demo"); res.redirect("/admin?reset=1"); });
+app.post("/admin/feedback-send", needOwner, async (req, res) => { const r = await sendFeedbackDigest(); res.redirect("/admin?fb=" + encodeURIComponent(r.sent ? `Sent ${r.sent} note(s).` : r.note || "Nothing sent.")); });
 
 /* ---------- pages ---------- */
 const PAGE_CSS = `body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#F2F3EF;color:#16181D;font:16px/1.5 "Atkinson Hyperlegible",system-ui,sans-serif}
@@ -351,7 +416,7 @@ function loginPage(err) {
 <div><label for="pw">Password</label><input id="pw" name="password" type="password" autocomplete="current-password" required autofocus></div>
 ${err ? `<p class="err">${esc(err)}</p>` : ""}<button type="submit">Sign in</button></form></body></html>`;
 }
-function adminPage({ u, a, c }) {
+function adminPage({ u, a, c, fb = { pending: 0 }, flash }) {
   const pct = Math.min(100, Math.round((u.usd / MONTHLY_CAP_USD) * 100));
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Design Lab admin</title>${FONTS}<style>${PAGE_CSS} body{align-items:flex-start;padding:40px 0}.box{width:min(640px,92vw)}</style></head><body><div class="box">
 <h1><i></i>Design Lab admin</h1><p><a href="/">← Back to the Lab</a></p>
@@ -361,6 +426,10 @@ function adminPage({ u, a, c }) {
 <h3 style="margin:8px 0 0">Image storage</h3><p>${(a.bytes / 1048576).toFixed(1)} MB of ${IMAGE_QUOTA_MB} MB · ${a.files} files</p>
 <h3 style="margin:8px 0 0">Records</h3><table><tr><th>Workspace</th><th>Kind</th><th>Count</th></tr>${c.map((r) => `<tr><td>${r.space === "main" ? "Jenna & Nathan" : "Demo"}</td><td>${esc(r.coll)}</td><td>${r.n}</td></tr>`).join("") || "<tr><td colspan=3>Nothing yet</td></tr>"}</table>
 <p>Storage: ${store.kind === "postgres" ? `Postgres, schema <code>${SCHEMA}</code> only` : "local file"}</p>
+<h3 style="margin:8px 0 0">Feedback email</h3>
+<p>${SMTP_USER && SMTP_PASS ? `Sends nightly at ${(FEEDBACK_HOUR % 12 || 12) + (FEEDBACK_HOUR >= 12 ? " pm" : " am")} Pacific from ${esc(SMTP_USER)} to ${esc(FEEDBACK_TO)} (replies go to ${esc(FEEDBACK_REPLY_TO)}).` : '<span class="err">Not set up yet: add SMTP_USER and SMTP_PASS in Render.</span>'}<br>${fb.pending} note${fb.pending === 1 ? "" : "s"} waiting${fb.last ? ` · last checked ${esc(fb.last.day)}, ${fb.last.sent} sent` : ""}.</p>
+${flash ? `<p><b>${esc(flash)}</b></p>` : ""}
+<form method="post" action="/admin/feedback-send"><button type="submit">Send waiting feedback now</button></form>
 <h3 style="margin:8px 0 0">Backups</h3><p><a href="/admin/export?space=main">Export Jenna & Nathan's workspace (JSON)</a> · <a href="/admin/export?space=demo">Export demo</a></p>
 <form method="post" action="/admin/reset-demo" onsubmit="return confirm('Clear everything in the demo workspace?')"><button type="submit" style="background:#B4500F">Reset the demo workspace</button></form>
 </div></body></html>`;
@@ -371,5 +440,7 @@ store.init().then(() => {
     console.log(`Design Lab on :${PORT} (storage: ${store.kind})`);
     if (!ANTHROPIC_API_KEY) console.warn("ANTHROPIC_API_KEY is not set: AI features are off.");
     for (const [k, v] of Object.entries(USERS)) if (!v.pw) console.warn(`No password set for ${k}: that login is disabled.`);
+    if (!getMailer()) console.warn("SMTP_USER / SMTP_PASS not set: the nightly feedback email is off.");
+    setInterval(feedbackTick, 10 * 60 * 1000); setTimeout(feedbackTick, 30 * 1000);
   });
 }).catch((e) => { console.error("Storage failed to start:", e.message); process.exit(1); });

@@ -4,7 +4,15 @@
   "private": true,
   "description": "Jenna's Design Lab: plans, project inspiration and kits, hosted at designlab.njc-labs.com",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
-  "engines": { "node": ">=20" },
-  "dependencies": { "express": "^4.21.2", "pg": "^8.13.1" }
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "nodemailer": "^6.9.16",
+    "pg": "^8.13.1"
+  }
 }

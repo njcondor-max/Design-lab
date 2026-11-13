@@ -458,6 +458,7 @@ async function boot(){
   db.collection("projects").onSnapshot(snap=>{ S.projects = docs(snap).filter(p=>!p.trashedAt).sort((a,b)=>(a.name||"").localeCompare(b.name||"")); softRender(); }, ()=>{});
   db.collection("cards").onSnapshot(snap=>{ S.cards = docs(snap).filter(c=>!c.trashedAt).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)); softRender(); }, ()=>{});
   db.collection("kits").onSnapshot(snap=>{ const m={}; snap.docs.forEach(d=>{ m[d.id]=clone(d.data()||{}); }); S.kits=m; softRender(); }, ()=>{});
+  db.collection("feedback").onSnapshot(snap=>{ S.feedback=docs(snap).filter(f=>!f.trashedAt).sort((a,b)=>(b.at||0)-(a.at||0)); if(view().v==="settings") softRender(); }, ()=>{});
   db.collection("parking").onSnapshot(snap=>{ S.parking = docs(snap).sort((a,b)=>(b.at||0)-(a.at||0)); softRender(); }, ()=>{});
   db.doc("lab/guide").onSnapshot(s=>{ S.guide = s.exists ? clone(s.data().tools||[]) : null; softRender(); }, ()=>{});
   db.doc("lab/playbooks").onSnapshot(s=>{ S.playbooks = s.exists ? clone(s.data().families||[]) : null; softRender(); }, ()=>{});
@@ -1889,8 +1890,11 @@ function settingsView(){
     <div class="jobs">
       <a class="card job" href="#guide"><h3>Tool guide</h3><p class="muted" style="font-size:14px">Which tool for which job, and how each tool has done for you.</p></a>
       <a class="card job" href="#playbooks"><h3>Playbooks</h3><p class="muted" style="font-size:14px">The stage order and “good enough” bars for each kind of work.</p></a>
+      <a class="card job" href="#" onclick="openFeedback();return false"><h3>Send feedback</h3><p class="muted" style="font-size:14px">Tell Nathan what's broken, confusing or missing. He gets it by email each night.</p></a>
       <a class="card job" href="#parking"><h3>Parking lot</h3><p class="muted" style="font-size:14px">Everything you've parked, ${S.parking.filter(p=>!p.done).length} open.</p></a>
-    </div></div>`;
+    </div>
+    ${(S.feedback||[]).length?`<div class="card stack" style="gap:8px"><h3>Your feedback</h3>${S.feedback.slice(0,20).map(f=>`<div class="row" style="gap:10px;align-items:flex-start;border-top:1px solid var(--line);padding-top:8px"><span class="chip">${esc(({broken:"Broken",confusing:"Confusing",idea:"Idea",love:"Love it"})[f.kind]||"Note")}</span><span style="flex:1;font-size:14px">${esc(f.text||"(screenshot)")}</span><span class="muted" style="font-size:12px;white-space:nowrap">${f.sentAt?"Sent "+new Date(f.sentAt).toLocaleDateString():"Goes out tonight"}</span></div>`).join("")}</div>`:""}
+  </div>`;
 }
 
 /* ---------- wiring (delegated once) ---------- */
@@ -2236,6 +2240,48 @@ function undoAction(mi, k){
 window.addEventListener("hashchange", ()=>{ if(S.chat.open){ const k=chatScope().key; if(k!==S.chat.key) chatSub(k); renderChat(); } });
 document.addEventListener("keydown", e=>{ const pnl=document.getElementById("chatPanel"); if(e.key==="Escape" && S.chat.open && pnl && pnl.contains(document.activeElement)){ toggleChat(false); } });
 setTimeout(()=>chatShell(), 0);
+
+
+/* ================= feedback to Nathan ================= */
+async function myRole(){ try{ const r=await fetch("/api/me",{credentials:"same-origin"}); return r.ok? (await r.json()) : null; }catch(e){ return null; } }
+function feedbackContext(){
+  const r=view(); const out={screen:screenName(r)};
+  let job=null, pid=null;
+  if(r.v==="focus"||r.v==="job"){ job=getJob(r.id); pid=job&&job.projectId; }
+  else if(r.v==="project") pid=r.id;
+  if(pid) out.project=projName(pid);
+  if(job){ out.task=job.title; const c=curStep(job); if(c && r.v==="focus") out.step=c.title; out.jobId=job.example?null:job.id; }
+  out.hash=location.hash.slice(1); return out;
+}
+let fbImage=null;
+function openFeedback(){
+  fbImage=null; const ctx=feedbackContext();
+  modal(`<h2>Feedback for Nathan</h2><p class="muted" style="font-size:14px">Anything broken, confusing, missing, or that you love. He gets it by email tonight.</p>
+    <div class="rate" id="fbKinds">${[["broken","Something's broken"],["confusing","Confusing"],["idea","Idea"],["love","Love it"]].map(([k,l])=>`<button type="button" class="btn small" data-fbk="${k}">${l}</button>`).join("")}</div>
+    <div><label for="fbText">What happened, or what would help?</label><textarea id="fbText" style="min-height:120px" placeholder="e.g. When I paste a brief, it doesn't show up on the Brief tab"></textarea></div>
+    <div class="row" style="gap:8px"><button type="button" class="btn small" id="fbAttach">Add a screenshot</button><input type="file" id="fbFile" accept="image/png,image/jpeg,image/webp" style="display:none"><span class="muted" style="font-size:13px" id="fbImgNote">or paste one</span></div>
+    <p class="muted" style="font-size:12px">Sent with: ${esc([ctx.screen, ctx.project, ctx.step?`step “${ctx.step}”`:""].filter(Boolean).join(" · "))}</p>
+    <div class="row"><button class="btn primary" id="fbSend">Send</button><button class="btn ghost" id="fbCancel">Cancel</button></div>`, {fbCancel:closeLayer});
+  let kind="idea"; const kinds=document.querySelectorAll("[data-fbk]");
+  const pick=k=>{ kind=k; kinds.forEach(b=>b.classList.toggle("on",b.dataset.fbk===k)); }; pick("idea");
+  kinds.forEach(b=>b.onclick=()=>pick(b.dataset.fbk));
+  const setImg=f=>{ if(!f||!/^image\//.test(f.type)) return; fbImage=f; $("#fbImgNote").textContent="Screenshot added: "+(f.name||"pasted image"); };
+  $("#fbAttach").onclick=()=>$("#fbFile").click(); $("#fbFile").onchange=()=>setImg($("#fbFile").files[0]);
+  S.addPaste = fs=>setImg(fs[0]);
+  $("#fbText").focus();
+  $("#fbSend").onclick=async()=>{
+    const text=$("#fbText").value.trim(); if(!text && !fbImage){ $("#fbText").focus(); return; }
+    const btn=$("#fbSend"); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Sending…';
+    const me=await myRole(); let image=null;
+    if(fbImage){ try{ const st=await storeFile(fbImage, fbImage.type); image=st.id||null; }catch(e){} }
+    const id=uid(); const doc={text:text.slice(0,5000), kind, ...ctx, image, by:me?me.id:S.me, byName:me?me.name:"", at:Date.now()};
+    S.feedback=[{id,...doc}, ...(S.feedback||[])];
+    await save("feedback/"+id, doc);
+    S.addPaste=null; closeLayer(); toast("Thanks! Nathan gets it tonight.");
+    if(view().v==="settings") render();
+  };
+}
+window.openFeedback = openFeedback;
 
 boot();
 </script>
