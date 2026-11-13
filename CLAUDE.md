@@ -17,6 +17,9 @@ A push to `main` deploys to her within minutes. Treat `main` as production.
 - Data shapes only gain fields. Never rename or remove a field the page already saves; old records must keep working.
 - Nothing is deleted outright: records get `trashedAt`. Uploaded files stay on the disk.
 - Images live on the service's disk (`/var/data/assets`), not in the database.
+- Since Nov 13 2026: every step has a stable `sid`; a step's rich notes live in `work/{jobId}-{sid}` (step `output` keeps a plain-text copy);
+  files attach to steps through `card.stepSids` and `card.role` ("ref" or "mine"); confirmed decisions are `project.decisions`;
+  per-person settings are `prefs/{userId}`; custom glossary terms are `glossary/{id}`. Stars were retired: starred cards were hearted once (`starsMigratedAt`).
 
 ## Money
 - Hosting is capped at about $10/month (Starter + 1 GB disk today). Ask Nathan before anything that adds cost.
